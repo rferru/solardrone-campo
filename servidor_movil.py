@@ -133,6 +133,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
     <h3>Brillo por escáner (targetWhite)</h3>
     <div id="slidersBox"></div>
     <button class="btn btn-cal" onclick="cmd('/api/auto_calibrar')">🎯 AUTO-CALIBRAR TODOS</button>
+
+    <h3 style="margin-top:16px">Detección códigos local (pyzbar)</h3>
+    <div style="font-size:11px;color:#424242;margin-bottom:6px" id="pyzbarInfo">—</div>
+    <select id="pyzbarModo" onchange="setPyzbarModo(this.value)" style="width:100%;padding:10px;font-size:14px;border-radius:6px;border:1px solid #999">
+        <option value="off">OFF — sin análisis (máximo ahorro batería)</option>
+        <option value="cada_3">Cada 3ª foto — bajo consumo (+3 Wh/día)</option>
+        <option value="cada_2">Cada 2ª foto — consumo medio (+5 Wh/día)</option>
+        <option value="todas">TODAS las fotos — alto consumo (+10 Wh/día)</option>
+        <option value="solo_al_cerrar">Solo al cerrar mesa — bajo consumo (+1 Wh/día)</option>
+    </select>
 </div>
 </details>
 
@@ -155,6 +165,10 @@ async function cmd(url, body){
     if(body){opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(body);}
     await fetch(url, opts);
     setTimeout(refrescar, 200);
+}
+
+function setPyzbarModo(modo){
+    cmd('/api/set_pyzbar_modo', {modo});
 }
 
 function enviarCodigoTest(){
@@ -208,6 +222,21 @@ async function refrescar(){
         if(s.detecciones_zbar !== null && s.detecciones_zbar !== undefined){
             document.getElementById('zbarBox').style.display = 'block';
             document.getElementById('zbarVal').textContent = s.detecciones_zbar;
+        }
+
+        // Selector de modo pyzbar
+        const sel = document.getElementById('pyzbarModo');
+        if(sel && s.pyzbar_modo && sel.value !== s.pyzbar_modo){
+            sel.value = s.pyzbar_modo;
+        }
+        const info = document.getElementById('pyzbarInfo');
+        if(info){
+            if(!s.pyzbar_disponible){
+                info.textContent = '⚠ pyzbar no instalado — instala con: pip install pyzbar pillow';
+                if(sel) sel.disabled = true;
+            } else {
+                info.textContent = 'Modo actual: ' + (s.pyzbar_modo || '—');
+            }
         }
 
         // GPS — solo alarma si está requerido
@@ -530,6 +559,10 @@ def _hacer_handler(app):
                 elif self.path == '/api/simular_codigo':
                     codigo = data.get('codigo', '')
                     app.simular_codigo_desde_movil(codigo)
+                    self._ok()
+                elif self.path == '/api/set_pyzbar_modo':
+                    modo = data.get('modo', 'cada_3')
+                    app.set_pyzbar_modo(modo)
                     self._ok()
                 else:
                     self.send_response(404); self.end_headers()

@@ -471,11 +471,13 @@ class InterfazCaptura:
         self._ultima_foto_bytes = None
         self._ultima_foto_lock = threading.Lock()
 
-        # Detección pyzbar async (cola + 2 workers paralelos)
-        # maxsize=100 deja ~15s de buffer si procesa 6 fotos/s
+        # Detección pyzbar async — modo configurable en vivo desde móvil
+        # Modos: "off" | "todas" | "cada_2" | "cada_3" | "solo_al_cerrar"
+        self.pyzbar_modo = self.config.get('pyzbar_modo', 'cada_3')
         self.pyzbar_queue = _queue.Queue(maxsize=100)
         self.pyzbar_contador = 0
         self.pyzbar_descartadas = 0
+        self.pyzbar_buffer_mesa = []  # para modo "solo_al_cerrar"
         self.detecciones_zbar = {1: 0, 2: 0, 3: 0}
         if PYZBAR_DISPONIBLE:
             # 1 worker para ahorrar batería. Si no da abasto, la cola se llena y
@@ -652,6 +654,34 @@ class InterfazCaptura:
                           command=lambda esc=e, v=var_leds: self._cambiar_leds(esc, v.get())
                           ).pack(anchor='w', padx=10, pady=(0, 6))
 
+        # Selector modo pyzbar
+        frame_zbar = tk.LabelFrame(win, text=" Detección códigos local (pyzbar) ",
+                                   font=('Arial', 11, 'bold'),
+                                   bg='#FFF9C4', fg='black', relief=tk.RIDGE, bd=2)
+        frame_zbar.pack(fill=tk.X, padx=15, pady=8)
+
+        if PYZBAR_DISPONIBLE:
+            tk.Label(frame_zbar, text="Modo (afecta consumo batería):",
+                    font=('Arial', 10), bg='#FFF9C4', fg='black').pack(anchor='w', padx=10, pady=(6, 2))
+            var_modo = tk.StringVar(value=self.pyzbar_modo)
+            opciones = [
+                ('off', 'OFF — sin análisis (máx ahorro)'),
+                ('cada_3', 'Cada 3ª foto (+3 Wh/día)'),
+                ('cada_2', 'Cada 2ª foto (+5 Wh/día)'),
+                ('todas', 'TODAS (+10 Wh/día)'),
+                ('solo_al_cerrar', 'Solo al cerrar mesa (+1 Wh/día)'),
+            ]
+            for val, txt in opciones:
+                tk.Radiobutton(frame_zbar, text=txt, variable=var_modo, value=val,
+                              font=('Arial', 10), bg='#FFF9C4', fg='black',
+                              selectcolor='#FFE082',
+                              command=lambda v=var_modo: self.set_pyzbar_modo(v.get())
+                              ).pack(anchor='w', padx=14, pady=1)
+        else:
+            tk.Label(frame_zbar, text="pyzbar no instalado\npip install pyzbar pillow",
+                    font=('Arial', 10), bg='#FFF9C4', fg='#C62828',
+                    justify='left').pack(padx=10, pady=8)
+
         tk.Button(win, text="CERRAR", font=('Arial', 12, 'bold'),
                  bg='#C62828', fg='white', padx=20, pady=6,
                  command=win.destroy).pack(pady=12)
@@ -762,6 +792,13 @@ class InterfazCaptura:
             return
         log(f"✓ Mesa {self.mesa_numero} completa ({COLUMNAS_TOTAL} códigos) — auto-cierre")
         self.detener_captura()
+        # Si modo solo_al_cerrar: encolar el buffer para procesar
+        if self.pyzbar_modo == 'solo_al_cerrar' and self.pyzbar_buffer_mesa:
+            log(f"🔍 Analizando {len(self.pyzbar_buffer_mesa)} fotos con pyzbar…")
+            for jpeg in self.pyzbar_buffer_mesa:
+                try: self.pyzbar_queue.put_nowait(jpeg)
+                except _queue.Full: break
+            self.pyzbar_buffer_mesa = []
         self._evaluar_semaforo()
         # Avanzar número de mesa para que el próximo HID arranque la siguiente
         self.mesa_numero += 1
@@ -971,6 +1008,8 @@ class InterfazCaptura:
             'escaneres_configurados': configurados,
             'escaneres_desconectados': desconectados,
             'gps_requerido': bool(self.config.get('gps_requerido', True)),
+            'pyzbar_modo': self.pyzbar_modo,
+            'pyzbar_disponible': PYZBAR_DISPONIBLE,
             'semaforo': self.semaforo_pendiente,
             **gps_info,
         }
@@ -983,21 +1022,39 @@ class InterfazCaptura:
     def _guardar_ultima_foto_miniatura(self, jpeg_bytes):
         """Llamado por EscanerFotos cada vez que guarda una foto.
         - Guarda última para preview móvil
-        - Encola TODAS para pyzbar; si la cola se llena, descarta las más viejas
-          (prioriza las recientes, que son las que el operario acaba de capturar)"""
+        - Encola según self.pyzbar_modo"""
         with self._ultima_foto_lock:
             self._ultima_foto_bytes = jpeg_bytes
-        if PYZBAR_DISPONIBLE and self.capturando:
-            self.pyzbar_contador += 1
+        if not (PYZBAR_DISPONIBLE and self.capturando):
+            return
+
+        modo = self.pyzbar_modo
+        if modo == 'off':
+            return
+        self.pyzbar_contador += 1
+
+        if modo == 'solo_al_cerrar':
+            # Guardar para procesar al cerrar mesa (hasta 100 últimas)
+            self.pyzbar_buffer_mesa.append(jpeg_bytes)
+            if len(self.pyzbar_buffer_mesa) > 100:
+                self.pyzbar_buffer_mesa.pop(0)
+            return
+
+        # Skip según modo
+        skip = {'todas': 1, 'cada_2': 2, 'cada_3': 3}.get(modo, 3)
+        if self.pyzbar_contador % skip != 0:
+            return
+
+        try:
+            self.pyzbar_queue.put_nowait(jpeg_bytes)
+        except _queue.Full:
+            # Cola llena → tirar la más vieja para que entre la nueva
             try:
+                self.pyzbar_queue.get_nowait()
                 self.pyzbar_queue.put_nowait(jpeg_bytes)
-            except _queue.Full:
-                # Cola llena → tirar la más vieja para que entre la nueva
-                try:
-                    self.pyzbar_queue.get_nowait()
-                    self.pyzbar_queue.put_nowait(jpeg_bytes)
-                except Exception:
-                    pass
+                self.pyzbar_descartadas += 1
+            except Exception:
+                pass
 
     def _pyzbar_worker(self):
         """Procesa fotos en background y guarda detecciones a CSV"""
@@ -1066,6 +1123,24 @@ class InterfazCaptura:
                 e.targetWhite = max(20, min(200, int(valor)))
                 log(f"⚙ E{esc_id} brillo → {e.targetWhite} (desde móvil)")
                 return
+
+    def set_pyzbar_modo(self, modo):
+        """Cambia el modo de pyzbar en vivo. Persiste en config.json.
+        Modos: off | todas | cada_2 | cada_3 | solo_al_cerrar"""
+        modos_validos = ('off', 'todas', 'cada_2', 'cada_3', 'solo_al_cerrar')
+        if modo not in modos_validos:
+            log(f"⚠ Modo pyzbar inválido: {modo}")
+            return
+        self.pyzbar_modo = modo
+        self.config['pyzbar_modo'] = modo
+        # Persistir config.json
+        try:
+            ruta = os.path.join(RUTA_SCRIPT, "config.json")
+            with open(ruta, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=4)
+        except Exception as e:
+            log(f"⚠ No se pudo persistir config: {e}")
+        log(f"⚙ pyzbar_modo → {modo}")
 
     def simular_codigo_desde_movil(self, codigo):
         """Procesa un código como si viniera del HID. Útil para test sin escáner."""
