@@ -35,10 +35,17 @@ except ImportError:
 # pyzbar opcional para decodificar Code128 en local
 try:
     from pyzbar.pyzbar import decode as zbar_decode
-    from PIL import Image as PIL_Image
+    from PIL import Image as PIL_Image, ImageEnhance, ImageFilter
     PYZBAR_DISPONIBLE = True
 except ImportError:
     PYZBAR_DISPONIBLE = False
+
+# zxing-cpp opcional (fallback si zbar falla — a veces lee códigos difíciles mejor)
+try:
+    import zxingcpp
+    ZXING_DISPONIBLE = True
+except ImportError:
+    ZXING_DISPONIBLE = False
 
 import io as _io
 import queue as _queue
@@ -480,10 +487,11 @@ class InterfazCaptura:
         self.pyzbar_buffer_mesa = []  # para modo "solo_al_cerrar"
         self.detecciones_zbar = {1: 0, 2: 0, 3: 0}
         if PYZBAR_DISPONIBLE:
-            # 1 worker para ahorrar batería. Si no da abasto, la cola se llena y
-            # se descartan las fotos MÁS VIEJAS (prioriza recientes).
             threading.Thread(target=self._pyzbar_worker, daemon=True).start()
-            log("✓ pyzbar disponible (1 worker) — detección local activa")
+            libs = ["pyzbar"]
+            if ZXING_DISPONIBLE:
+                libs.append("zxing-cpp")
+            log(f"✓ Detección local activa — librerías: {'+'.join(libs)}")
         else:
             log("⚠ pyzbar no instalado — sin detección local de códigos")
 
@@ -1056,8 +1064,49 @@ class InterfazCaptura:
             except Exception:
                 pass
 
+    def _decodificar_cascada(self, img_l):
+        """Intenta varias estrategias de decodificación en orden de coste creciente.
+        Devuelve lista de (codigo, tipo, metodo). Para en la primera que lea."""
+        resultados = []
+
+        # 1) zbar en imagen original (rápido, ~30-50ms)
+        for r in zbar_decode(img_l):
+            resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar'))
+        if resultados:
+            return resultados
+
+        # 2) zbar en imagen 2x con sharpen + contraste (para códigos pequeños)
+        try:
+            w, h = img_l.size
+            img_big = img_l.resize((w * 2, h * 2), PIL_Image.LANCZOS)
+            img_big = ImageEnhance.Contrast(img_big).enhance(1.4)
+            img_big = img_big.filter(ImageFilter.SHARPEN)
+            for r in zbar_decode(img_big):
+                resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar+2x'))
+            if resultados:
+                return resultados
+        except Exception:
+            pass
+
+        # 3) zxing-cpp (si está instalado — a veces lee códigos que zbar no)
+        if ZXING_DISPONIBLE:
+            try:
+                for r in zxingcpp.read_barcodes(img_l):
+                    resultados.append((r.text, str(r.format), 'zxing'))
+                if resultados:
+                    return resultados
+                # 4) zxing en 2x
+                for r in zxingcpp.read_barcodes(img_big):
+                    resultados.append((r.text, str(r.format), 'zxing+2x'))
+                if resultados:
+                    return resultados
+            except Exception:
+                pass
+
+        return resultados
+
     def _pyzbar_worker(self):
-        """Procesa fotos en background y guarda detecciones a CSV"""
+        """Procesa fotos en background. Cascada: zbar → zbar 2x → zxing → zxing 2x."""
         while True:
             try:
                 jpeg = self.pyzbar_queue.get(timeout=1)
@@ -1065,28 +1114,23 @@ class InterfazCaptura:
                 continue
             try:
                 img = PIL_Image.open(_io.BytesIO(jpeg)).convert('L')
-                resultados = zbar_decode(img)
-                if resultados:
-                    for r in resultados:
-                        codigo = r.data.decode('utf-8', errors='ignore')
-                        # Identificar escáner por el último contador (aproximado)
-                        log(f"🔍 pyzbar leyó: {codigo}")
-                        # Guardar a CSV de detecciones
-                        if self.carpeta_mesa:
-                            ruta = os.path.join(self.carpeta_mesa, "detecciones_zbar.csv")
-                            nuevo = not os.path.exists(ruta)
-                            try:
-                                with open(ruta, 'a', encoding='utf-8') as f:
-                                    if nuevo:
-                                        f.write("timestamp,codigo,tipo\n")
-                                    ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                                    f.write(f"{ts},{codigo},{r.type}\n")
-                            except Exception as ex:
-                                log(f"  ⚠ No se pudo guardar deteccion: {ex}")
-                        # Contador genérico (no podemos saber qué escáner sin más info)
-                        self.detecciones_zbar[1] = self.detecciones_zbar.get(1, 0) + 1
+                resultados = self._decodificar_cascada(img)
+                for codigo, tipo, metodo in resultados:
+                    log(f"🔍 {metodo} leyó: {codigo} ({tipo})")
+                    if self.carpeta_mesa:
+                        ruta = os.path.join(self.carpeta_mesa, "detecciones_zbar.csv")
+                        nuevo = not os.path.exists(ruta)
+                        try:
+                            with open(ruta, 'a', encoding='utf-8') as f:
+                                if nuevo:
+                                    f.write("timestamp,codigo,tipo,metodo\n")
+                                ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                                f.write(f"{ts},{codigo},{tipo},{metodo}\n")
+                        except Exception as ex:
+                            log(f"  ⚠ No se pudo guardar deteccion: {ex}")
+                    self.detecciones_zbar[1] = self.detecciones_zbar.get(1, 0) + 1
             except Exception as e:
-                log(f"⚠ pyzbar error: {e}")
+                log(f"⚠ decodificar error: {e}")
 
     def iniciar_captura_desde_movil(self):
         self.root.after(0, self._iniciar_desde_movil)
