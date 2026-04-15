@@ -1090,9 +1090,6 @@ class InterfazCaptura:
         n_codigos = len(self.codigos_unicos)
         fotos_min = min([e.contador for e in self.escaneres_fotos], default=0)
 
-        # GPS fix %: aproximación — simple si conectado al final
-        gps_fix_pct = 100 if (self.gps and self.gps.conectado) else 0
-
         problemas = []
         estado = 'verde'
 
@@ -1108,11 +1105,14 @@ class InterfazCaptura:
             if estado == 'verde': estado = 'ambar'
             problemas.append(f"escáner con {fotos_min} fotos (pocas)")
 
-        if gps_fix_pct < 80:
-            estado = 'rojo'; problemas.append("GPS sin fix")
-        elif gps_fix_pct < 95:
-            if estado == 'verde': estado = 'ambar'
-            problemas.append(f"GPS {gps_fix_pct}%")
+        # Solo evaluar GPS si está configurado (modo test sin GPS → se ignora)
+        if self.gps is not None:
+            gps_fix_pct = 100 if self.gps.conectado else 0
+            if gps_fix_pct < 80:
+                estado = 'rojo'; problemas.append("GPS sin fix")
+            elif gps_fix_pct < 95:
+                if estado == 'verde': estado = 'ambar'
+                problemas.append(f"GPS {gps_fix_pct}%")
 
         self.semaforo_pendiente = {
             'estado': estado,
