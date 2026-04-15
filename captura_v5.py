@@ -32,13 +32,22 @@ try:
 except ImportError:
     BEEP_DISPONIBLE = False
 
-# pyzbar opcional para decodificar Code128 en local
+# pyzbar opcional para decodificar códigos en local (todos los symbologies)
 try:
     from pyzbar.pyzbar import decode as zbar_decode
+    from pyzbar.pyzbar import ZBarSymbol
     from PIL import Image as PIL_Image, ImageEnhance, ImageFilter
     PYZBAR_DISPONIBLE = True
+    # Todos los tipos que pyzbar puede leer — explícito para claridad
+    ZBAR_ALL = [
+        ZBarSymbol.CODE128, ZBarSymbol.CODE39, ZBarSymbol.CODE93,
+        ZBarSymbol.EAN13, ZBarSymbol.EAN8, ZBarSymbol.UPCA, ZBarSymbol.UPCE,
+        ZBarSymbol.I25, ZBarSymbol.DATABAR, ZBarSymbol.DATABAR_EXP,
+        ZBarSymbol.CODABAR, ZBarSymbol.QRCODE, ZBarSymbol.PDF417,
+    ]
 except ImportError:
     PYZBAR_DISPONIBLE = False
+    ZBAR_ALL = []
 
 # zxing-cpp opcional (fallback si zbar falla — a veces lee códigos difíciles mejor)
 try:
@@ -486,6 +495,7 @@ class InterfazCaptura:
         self.pyzbar_descartadas = 0
         self.pyzbar_buffer_mesa = []  # para modo "solo_al_cerrar"
         self.detecciones_zbar = {1: 0, 2: 0, 3: 0}
+        self.codigos_zbar_unicos = set()  # dedup: códigos únicos leídos en la mesa
         if PYZBAR_DISPONIBLE:
             threading.Thread(target=self._pyzbar_worker, daemon=True).start()
             libs = ["pyzbar"]
@@ -882,6 +892,8 @@ class InterfazCaptura:
         self.hid_buffer = ""
         self.detecciones_zbar = {1: 0, 2: 0, 3: 0}
         self.pyzbar_contador = 0
+        self.codigos_zbar_unicos = set()
+        self.pyzbar_buffer_mesa = []
 
         # Abrir CSV ANTES de capturar nada
         self._abrir_csv()
@@ -1069,19 +1081,20 @@ class InterfazCaptura:
         Devuelve lista de (codigo, tipo, metodo). Para en la primera que lea."""
         resultados = []
 
-        # 1) zbar en imagen original (rápido, ~30-50ms)
-        for r in zbar_decode(img_l):
+        # 1) zbar en imagen original (rápido, ~30-50ms) — TODOS los symbologies
+        for r in zbar_decode(img_l, symbols=ZBAR_ALL):
             resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar'))
         if resultados:
             return resultados
 
         # 2) zbar en imagen 2x con sharpen + contraste (para códigos pequeños)
+        img_big = None
         try:
             w, h = img_l.size
             img_big = img_l.resize((w * 2, h * 2), PIL_Image.LANCZOS)
             img_big = ImageEnhance.Contrast(img_big).enhance(1.4)
             img_big = img_big.filter(ImageFilter.SHARPEN)
-            for r in zbar_decode(img_big):
+            for r in zbar_decode(img_big, symbols=ZBAR_ALL):
                 resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar+2x'))
             if resultados:
                 return resultados
@@ -1116,7 +1129,11 @@ class InterfazCaptura:
                 img = PIL_Image.open(_io.BytesIO(jpeg)).convert('L')
                 resultados = self._decodificar_cascada(img)
                 for codigo, tipo, metodo in resultados:
-                    log(f"🔍 {metodo} leyó: {codigo} ({tipo})")
+                    # Dedup: si ya lo leímos en esta mesa, solo loguear como repetido
+                    if codigo in self.codigos_zbar_unicos:
+                        continue  # repetido, no cuenta de nuevo
+                    self.codigos_zbar_unicos.add(codigo)
+                    log(f"🔍 {metodo} leyó código nuevo: {codigo} ({tipo})")
                     if self.carpeta_mesa:
                         ruta = os.path.join(self.carpeta_mesa, "detecciones_zbar.csv")
                         nuevo = not os.path.exists(ruta)
@@ -1128,7 +1145,8 @@ class InterfazCaptura:
                                 f.write(f"{ts},{codigo},{tipo},{metodo}\n")
                         except Exception as ex:
                             log(f"  ⚠ No se pudo guardar deteccion: {ex}")
-                    self.detecciones_zbar[1] = self.detecciones_zbar.get(1, 0) + 1
+                    # Contador = códigos únicos (igual que HID en columnas)
+                    self.detecciones_zbar[1] = len(self.codigos_zbar_unicos)
             except Exception as e:
                 log(f"⚠ decodificar error: {e}")
 
