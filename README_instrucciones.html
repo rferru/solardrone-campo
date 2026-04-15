@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solar Drone v5 — Instrucciones Windows</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{background:#0d1117;color:#e6edf3;padding:20px 14px;max-width:900px;margin:0 auto;font-size:15px;line-height:1.5}
+h1{color:#58a6ff;font-size:26px;margin-bottom:6px;border-bottom:2px solid #30363d;padding-bottom:8px}
+h2{color:#58a6ff;font-size:20px;margin:28px 0 10px;display:flex;align-items:center;gap:8px}
+h2 .num{background:#238636;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700}
+h3{color:#f0f6fc;font-size:16px;margin:16px 0 6px}
+p,li{color:#c9d1d9;margin:6px 0}
+ul,ol{padding-left:26px}
+.subtitle{color:#8b949e;font-size:14px;margin-bottom:24px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin:12px 0}
+.card.warn{border-left:4px solid #f0883e}
+.card.ok{border-left:4px solid #238636}
+.card.info{border-left:4px solid #58a6ff}
+.cmd{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;font-family:"SF Mono",Consolas,monospace;font-size:13px;color:#f0f6fc;overflow-x:auto}
+.cmd code{flex:1;white-space:nowrap;overflow-x:auto;padding-right:10px}
+.cmd button{background:#21262d;border:1px solid #30363d;color:#e6edf3;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap}
+.cmd button:hover{background:#30363d}
+.cmd button.copied{background:#238636;border-color:#238636;color:#fff}
+a.dl{display:inline-block;background:#238636;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-weight:600;margin:4px 6px 4px 0;font-size:13px}
+a.dl:hover{background:#2ea043}
+.files{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+kbd{background:#21262d;border:1px solid #30363d;border-bottom-width:2px;padding:2px 6px;border-radius:4px;font-family:"SF Mono",monospace;font-size:12px}
+.warn strong{color:#f0883e}
+.ok strong{color:#3fb950}
+.info strong{color:#58a6ff}
+hr{border:none;border-top:1px solid #30363d;margin:24px 0}
+.tag{display:inline-block;background:#30363d;padding:2px 8px;border-radius:4px;font-size:11px;color:#8b949e;margin-left:8px}
+.tag.crit{background:#da3633;color:#fff}
+.tag.opt{background:#1f6feb;color:#fff}
+img.qr{max-width:140px;border-radius:8px}
+</style>
+</head>
+<body>
+
+<h1>Solar Drone v5 — Windows (campo)</h1>
+<p class="subtitle">Pasos ordenados. Botones de copiar en cada comando.</p>
+
+<div class="card info">
+<strong>ℹ Link del Gist con todos los archivos:</strong><br>
+<a href="https://gist.github.com/rferru/b544fd8e052b7e1ebac73a6be1d46886" target="_blank" style="color:#58a6ff">gist.github.com/rferru/b544fd8e052b7e1ebac73a6be1d46886</a>
+</div>
+
+<h2><span class="num">1</span> Descargar archivos <span class="tag crit">CRÍTICO</span></h2>
+
+<p>Crea una carpeta nueva en el Escritorio (ej. <code>SolarDrone</code>) y guarda dentro estos archivos (click derecho → <em>Guardar enlace como…</em> en cada uno):</p>
+
+<div class="files">
+<a class="dl" href="https://gist.githubusercontent.com/rferru/b544fd8e052b7e1ebac73a6be1d46886/raw/captura_v5.py" download>captura_v5.py</a>
+<a class="dl" href="https://gist.githubusercontent.com/rferru/b544fd8e052b7e1ebac73a6be1d46886/raw/servidor_movil.py" download>servidor_movil.py</a>
+<a class="dl" href="https://gist.githubusercontent.com/rferru/b544fd8e052b7e1ebac73a6be1d46886/raw/configurador_v5.py" download>configurador_v5.py</a>
+<a class="dl" href="https://gist.githubusercontent.com/rferru/b544fd8e052b7e1ebac73a6be1d46886/raw/diagnostico.py" download>diagnostico.py</a>
+<a class="dl" href="https://gist.githubusercontent.com/rferru/b544fd8e052b7e1ebac73a6be1d46886/raw/EJECUTAR_CAPTURA.bat" download>EJECUTAR_CAPTURA.bat</a>
+<a class="dl" href="https://gist.githubusercontent.com/rferru/b544fd8e052b7e1ebac73a6be1d46886/raw/EJECUTAR_CONFIGURADOR.bat" download>EJECUTAR_CONFIGURADOR.bat</a>
+<a class="dl" href="https://gist.githubusercontent.com/rferru/b544fd8e052b7e1ebac73a6be1d46886/raw/EJECUTAR_DIAGNOSTICO.bat" download>EJECUTAR_DIAGNOSTICO.bat</a>
+<a class="dl" href="https://gist.githubusercontent.com/rferru/b544fd8e052b7e1ebac73a6be1d46886/raw/SUBIR_DATOS.bat" download>SUBIR_DATOS.bat</a>
+</div>
+
+<div class="card warn">
+<strong>⚠ Importante:</strong> los <code>.py</code> y <code>.bat</code> tienen que estar <em>todos en la misma carpeta</em>, junto al <code>config.json</code> que generarás con el configurador.
+</div>
+
+<hr>
+
+<h2><span class="num">2</span> Instalar dependencias Python <span class="tag crit">CRÍTICO si no las tienes</span></h2>
+
+<p>Abre <strong>CMD</strong> (<kbd>Win</kbd>+<kbd>R</kbd> → <code>cmd</code>) y pega:</p>
+
+<div class="cmd"><code>pip install pyserial</code><button onclick="copy(this)">Copiar</button></div>
+
+<p><strong>Opcional</strong> — para que pyzbar detecte códigos de barras en las fotos localmente:</p>
+
+<div class="cmd"><code>pip install pyzbar pillow</code><button onclick="copy(this)">Copiar</button></div>
+
+<div class="card warn">
+<strong>pyzbar en Windows:</strong> si al ejecutar el programa sale error de <code>libzbar-64.dll</code>, descarga e instala el runtime C++ de Microsoft: <a href="https://aka.ms/vs/17/release/vc_redist.x64.exe" target="_blank" style="color:#58a6ff">vc_redist.x64.exe</a>. Si aun así falla, el programa funciona igual sin pyzbar — solo pierdes la detección visual, no es crítico.
+</div>
+
+<hr>
+
+<h2><span class="num">3</span> Configurar escáneres (1 vez por PC) <span class="tag">SOLO PRIMERA VEZ</span></h2>
+
+<p>Doble-click en <code>EJECUTAR_CONFIGURADOR.bat</code>. Se abrirá la ventana del configurador:</p>
+<ol>
+<li>Conecta <strong>3 escáneres de fotos</strong> (modo USB Serial) + <strong>1 escáner HID</strong> (modo HID Keyboard, ya está con sufijo CR configurado) + <strong>GPS</strong></li>
+<li>Click en <strong>PASO A PASO</strong></li>
+<li>Sigue las instrucciones — escanea con el escáner que quieras asignar a cada paso (arriba → medio → abajo-fotos → GPS se detecta solo)</li>
+<li>El botón <strong>TEST HID</strong> es para confirmar que el escáner de abajo funciona</li>
+<li>Click en <strong>GUARDAR</strong> → se crea <code>config.json</code></li>
+</ol>
+
+<hr>
+
+<h2><span class="num">4</span> Activar hotspot del móvil <span class="tag crit">CRÍTICO</span></h2>
+
+<p>El PC se conecta al WiFi del móvil (no al revés). Así ahorras batería del PC y el móvil siempre es alcanzable.</p>
+
+<h3>En el móvil:</h3>
+<ul>
+<li><strong>Android</strong>: Ajustes → Red → Punto de acceso WiFi → Activar</li>
+<li><strong>iPhone</strong>: Ajustes → Compartir Internet → Activar. En <em>Ajustes → Compartir Internet</em> asegúrate de que <strong>"Maximizar compatibilidad"</strong> esté ON (activa 2.4 GHz).</li>
+</ul>
+
+<h3>En el PC:</h3>
+<ol>
+<li>Click en el icono de WiFi (esquina inferior derecha)</li>
+<li>Conecta al hotspot del móvil con la contraseña</li>
+<li>Confirma que tienes conexión (puede que sin internet → da igual, solo red local)</li>
+</ol>
+
+<hr>
+
+<h2><span class="num">5</span> Arrancar la captura <span class="tag crit">CRÍTICO</span></h2>
+
+<p>Doble-click en <code>EJECUTAR_CAPTURA.bat</code>. Verás la consola con algo así:</p>
+
+<div class="cmd" style="display:block;font-family:'SF Mono',monospace;color:#3fb950">
+✓ Config leída: config.json<br>
+✓ E1 conectado en COM4 (SN=...)<br>
+✓ E2 conectado en COM5<br>
+✓ E3 conectado en COM6<br>
+✓ GPS conectado en COM7<br>
+============================================================<br>
+&nbsp; SERVIDOR MÓVIL ESCUCHANDO<br>
+&nbsp; Abre en el móvil (conectado al hotspot):<br>
+&nbsp; &nbsp; → http://192.168.1.43:8080<br>
+============================================================
+</div>
+
+<p><strong>Apunta esa IP</strong> — la necesitas en el móvil.</p>
+
+<hr>
+
+<h2><span class="num">6</span> Abrir en el móvil <span class="tag crit">CRÍTICO</span></h2>
+
+<ol>
+<li>En el móvil, abre el navegador (Chrome/Safari)</li>
+<li>Escribe la URL que salió en el PC, por ejemplo <code>http://192.168.1.43:8080</code></li>
+<li>Debería aparecer la pantalla <strong>Solar Drone v5</strong>. Auto-refresca cada 2s.</li>
+<li><strong>Añádelo a pantalla de inicio</strong>: botón compartir → <em>Añadir a pantalla principal</em>. Así queda como si fuese una app.</li>
+<li><strong>Permite reproducción de audio</strong>: toca cualquier parte de la pantalla una vez para que el navegador autorice los sonidos.</li>
+</ol>
+
+<div class="card ok">
+<strong>Flujo normal del día:</strong>
+<ol>
+<li>Caminas hasta la primera mesa. Aprietas el gatillo del escáner HID contra el primer código</li>
+<li>La mesa se <strong>inicia sola</strong>. Sonido agudo en el móvil</li>
+<li>Vas disparando los 14 códigos. Cada uno beep + vibración</li>
+<li>Al código 14 → doble beep + mesa se <strong>cierra sola</strong> + aparece semáforo en el móvil (verde/ámbar/rojo)</li>
+<li>Si verde → sigues al siguiente panel, disparas el primer código de la mesa siguiente → se abre sola</li>
+<li>Si rojo → tocas ↻ REPETIR MESA en el móvil, vuelves y reharás los 14</li>
+</ol>
+</div>
+
+<hr>
+
+<h2><span class="num">7</span> Ajustes en marcha (desde el móvil)</h2>
+
+<ul>
+<li><strong>Brillo por cámara</strong>: expande "⚙ Ajustes" en el móvil, mueve los sliders. Cambio inmediato en siguiente foto.</li>
+<li><strong>AUTO-CALIBRAR TODOS</strong>: tarda unos 10s, mide luz real y decide si LED/no-LED + targetWhite óptimo por cámara. Úsalo al arrancar el día o si cambia el sol (de nublado a despejado).</li>
+<li><strong>PARAR</strong>: solo si quieres cortar una mesa antes de los 14 códigos. Aparece el semáforo.</li>
+</ul>
+
+<hr>
+
+<h2><span class="num">8</span> Al acabar el día — subir a Drive/GCS <span class="tag opt">OPCIONAL</span></h2>
+
+<p>Cuando lleguen al hotel con wifi bueno, doble-click en <code>SUBIR_DATOS.bat</code> (solo si quieres subir las fotos/CSVs a GCS). Las fotos se quedan en la carpeta <code>capturas/</code> aunque no las subas.</p>
+
+<div class="card info">
+<strong>ℹ Sin gsutil configurado:</strong> zippear la carpeta <code>capturas\</code> y subirla a Google Drive a mano también vale. Son ~500 MB/día de fotos pequeñas, se sube en pocos minutos.
+</div>
+
+<hr>
+
+<h2><span class="num">9</span> Cuando llames a Rubén</h2>
+
+<p>Si algo falla, manda por WhatsApp:</p>
+<ul>
+<li>El archivo <code>log.txt</code> que está en la carpeta (se escribe mientras el programa corre)</li>
+<li>Captura de pantalla de la consola (la ventana negra con el texto)</li>
+<li>Descripción breve: <em>"iba bien hasta que … y empezó a salir …"</em></li>
+</ul>
+
+<div class="card warn">
+<strong>⚠ Solución rápida si algo se cuelga:</strong> Cierra la ventana del programa (X roja de la consola Python). Vuelve a ejecutar <code>EJECUTAR_CAPTURA.bat</code>. La numeración de mesas sigue por donde iba. Los datos ya guardados no se pierden.
+</div>
+
+<hr>
+
+<h2><span class="num">10</span> Checklist antes de salir de casa</h2>
+
+<ul>
+<li>[ ] PC cargado al 100%</li>
+<li>[ ] Móvil cargado al 100%</li>
+<li>[ ] Hotspot activo en el móvil, contraseña guardada en el PC</li>
+<li>[ ] 3 escáneres de fotos + 1 escáner HID + GPS enchufados</li>
+<li>[ ] <code>config.json</code> creado con el configurador</li>
+<li>[ ] Test de 1 código HID funcionando (Notepad)</li>
+<li>[ ] Test de 1 mesa completa en local antes de salir</li>
+<li>[ ] Batería externa por si acaso</li>
+</ul>
+
+<p style="margin-top:40px;color:#484f58;font-size:12px;text-align:center">Última actualización: 2026-04-15 · Rubén · Solar Drone</p>
+
+<script>
+function copy(btn){
+    const txt = btn.previousElementSibling.textContent;
+    navigator.clipboard.writeText(txt).then(() => {
+        btn.textContent = '✓ Copiado';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = 'Copiar';
+            btn.classList.remove('copied');
+        }, 2000);
+    });
+}
+</script>
+
+</body>
+</html>
