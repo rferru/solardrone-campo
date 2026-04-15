@@ -468,6 +468,9 @@ class InterfazCaptura:
                 with open(ruta, 'r', encoding='utf-8') as f:
                     cfg = json.load(f)
                 log(f"✓ Config leída: {ruta}")
+                # Default: GPS REQUERIDO en producción (avisa si falta)
+                if 'gps_requerido' not in cfg:
+                    cfg['gps_requerido'] = bool(cfg.get('puerto_gps'))
                 return cfg
             except Exception as e:
                 log(f"✗ Error leyendo config: {e}")
@@ -476,7 +479,8 @@ class InterfazCaptura:
             "escaner_fotos_1": {"puerto": "COM3", "targetWhite": 80, "leds": True},
             "escaner_fotos_2": {"puerto": "COM4", "targetWhite": 80, "leds": True},
             "escaner_fotos_3": {"puerto": "COM5", "targetWhite": 80, "leds": True},
-            "puerto_gps": "COM6"
+            "puerto_gps": "COM6",
+            "gps_requerido": True,
         }
 
     def _get_escaner_cfg(self, i):
@@ -896,6 +900,12 @@ class InterfazCaptura:
         else:
             gps_info = {'gps_connected': False, 'gps_ok': False}
 
+        # Escáneres desconectados (esperados según config pero no abiertos)
+        configurados = sum(1 for i in range(1, 4)
+                           if self._get_escaner_cfg(i)[0])
+        desconectados = [e.escaner_id for e in self.escaneres_fotos
+                         if not (e.serial and e.serial.is_open)]
+
         return {
             'capturando': self.capturando,
             'mesa_numero': self.mesa_numero,
@@ -905,6 +915,9 @@ class InterfazCaptura:
             'fotos': total_fotos,
             'detecciones_zbar': sum(self.detecciones_zbar.values()) if PYZBAR_DISPONIBLE else None,
             'escaneres': escaneres_info,
+            'escaneres_configurados': configurados,
+            'escaneres_desconectados': desconectados,
+            'gps_requerido': bool(self.config.get('gps_requerido', True)),
             'semaforo': self.semaforo_pendiente,
             **gps_info,
         }
@@ -1118,14 +1131,26 @@ class InterfazCaptura:
             if estado == 'verde': estado = 'ambar'
             problemas.append(f"escáner con {fotos_min} fotos (pocas)")
 
-        # Solo evaluar GPS si está configurado (modo test sin GPS → se ignora)
-        if self.gps is not None:
-            gps_fix_pct = 100 if self.gps.conectado else 0
-            if gps_fix_pct < 80:
-                estado = 'rojo'; problemas.append("GPS sin fix")
-            elif gps_fix_pct < 95:
-                if estado == 'verde': estado = 'ambar'
-                problemas.append(f"GPS {gps_fix_pct}%")
+        # GPS: si está marcado como requerido, su ausencia/pérdida es bloqueante
+        gps_requerido = self.config.get('gps_requerido', True)
+        if gps_requerido:
+            if self.gps is None:
+                estado = 'rojo'; problemas.append("GPS no configurado")
+            else:
+                gps_fix_pct = 100 if self.gps.conectado else 0
+                if gps_fix_pct < 80:
+                    estado = 'rojo'; problemas.append("GPS sin fix")
+                elif gps_fix_pct < 95:
+                    if estado == 'verde': estado = 'ambar'
+                    problemas.append(f"GPS {gps_fix_pct}%")
+        # Si gps_requerido=False (modo test), el GPS no afecta al semáforo
+
+        # Escáneres desconectados: rojo siempre
+        desconectados = [e.escaner_id for e in self.escaneres_fotos
+                         if not (e.serial and e.serial.is_open)]
+        if desconectados:
+            estado = 'rojo'
+            problemas.append(f"escáner E{','.join(map(str, desconectados))} desconectado")
 
         self.semaforo_pendiente = {
             'estado': estado,

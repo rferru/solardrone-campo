@@ -67,9 +67,25 @@ def main():
     if gps_puerto:
         config["puerto_gps"] = gps_puerto
         config["gps_serial_number"] = gps_sn
+        config["gps_requerido"] = True  # GPS detectado → modo producción
+        print(f"\n  → GPS detectado: en CAMPO se exigirá fix GPS para semáforo verde")
     else:
         config["puerto_gps"] = ""
         config["gps_serial_number"] = ""
+        # PREGUNTA EXPLÍCITA — para que no sea un olvido peligroso
+        print("\n" + "!" * 60)
+        print("  ATENCIÓN: NO SE DETECTÓ GPS")
+        print("!" * 60)
+        print("\n  Si estás en CAMPO y debería haber GPS, cancela esto (Ctrl+C),")
+        print("  conecta el GPS y vuelve a ejecutar.")
+        print("\n  Si es modo TEST sin GPS (ej. probando en casa), pulsa Enter.")
+        try:
+            input("\n  Pulsa Enter para continuar SIN GPS (modo test) o Ctrl+C para cancelar: ")
+        except KeyboardInterrupt:
+            print("\n\n❌ Cancelado por el usuario. Conecta el GPS y vuelve a ejecutar.")
+            return
+        config["gps_requerido"] = False  # modo test
+        print("\n  → Modo TEST sin GPS: el semáforo NO bloqueará por falta de GPS")
     config["gps_baudrate"] = 9600
 
     ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")

@@ -88,6 +88,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 
 <div class="gps" id="gpsBox">GPS: —</div>
 
+<div id="alarmaHW" style="display:none;background:#C62828;color:#fff;padding:14px;border-radius:8px;font-weight:700;text-align:center;margin:8px 0;animation:blink 0.5s infinite">
+    ⚠ <span id="alarmaHWtxt"></span>
+</div>
+
 <div class="fotos-row">
     <div class="stat"><div class="label">E1 fotos</div><div class="val" id="e1f">0</div></div>
     <div class="stat"><div class="label">E2 fotos</div><div class="val" id="e2f">0</div></div>
@@ -143,6 +147,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 let lastCol = 0;
 let lastGpsOk = true;
 let semaforoShowing = false;
+let lastDescon = '';
+let lastGpsRequerido = true;
 
 async function cmd(url, body){
     const opts = {method:'POST'};
@@ -204,24 +210,44 @@ async function refrescar(){
             document.getElementById('zbarVal').textContent = s.detecciones_zbar;
         }
 
-        // GPS
+        // GPS — solo alarma si está requerido
         const gpsEl = document.getElementById('gpsBox');
+        const gpsReq = s.gps_requerido;
+        lastGpsRequerido = gpsReq;
         if(s.gps_ok && s.gps_lat){
             gpsEl.className = 'gps ok';
             gpsEl.textContent = 'GPS ✓ ' + s.gps_lat.toFixed(5) + ', ' + s.gps_lon.toFixed(5) + ' (' + s.gps_sat + ' sat)';
-            if(!lastGpsOk){/* recuperado */}
             lastGpsOk = true;
         } else if(s.gps_connected){
             gpsEl.className = 'gps warn';
             gpsEl.textContent = 'GPS ⏳ buscando satélites…';
+            if(lastGpsOk && gpsReq){document.getElementById('aLost').play().catch(()=>{});navigator.vibrate&&navigator.vibrate([200,100,200])}
+            lastGpsOk = false;
+        } else if(gpsReq){
+            gpsEl.className = 'gps err';
+            gpsEl.textContent = 'GPS ✗ SIN CONEXIÓN — REQUERIDO';
             if(lastGpsOk){document.getElementById('aLost').play().catch(()=>{});navigator.vibrate&&navigator.vibrate([200,100,200])}
             lastGpsOk = false;
         } else {
-            gpsEl.className = 'gps err';
-            gpsEl.textContent = 'GPS ✗ sin conexión';
-            if(lastGpsOk){document.getElementById('aLost').play().catch(()=>{});navigator.vibrate&&navigator.vibrate([200,100,200])}
-            lastGpsOk = false;
+            gpsEl.className = 'gps warn';
+            gpsEl.textContent = 'GPS no configurado (modo test)';
+            lastGpsOk = true;
         }
+
+        // Alarma de escáner desconectado (durante captura)
+        const desconEl = document.getElementById('alarmaHW');
+        const descon = (s.escaneres_desconectados || []).join(',');
+        if(descon){
+            desconEl.style.display = 'block';
+            document.getElementById('alarmaHWtxt').textContent = 'ESCÁNER E' + descon + ' DESCONECTADO';
+            if(descon !== lastDescon){
+                document.getElementById('aAlarm').play().catch(()=>{});
+                navigator.vibrate && navigator.vibrate([400,200,400,200,400]);
+            }
+        } else {
+            desconEl.style.display = 'none';
+        }
+        lastDescon = descon;
 
         // Botones / mensaje de inicio
         const msgInicio = document.getElementById('msgInicio');

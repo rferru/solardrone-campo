@@ -181,7 +181,32 @@ img.qr{max-width:140px;border-radius:8px}
 
 <hr>
 
-<h2><span class="num">9</span> Cuando llames a Rubén</h2>
+<h2><span class="num">9</span> Sonidos del móvil — qué significa cada uno</h2>
+
+<div class="card">
+<table style="width:100%;border-collapse:collapse">
+<tr style="border-bottom:1px solid #30363d"><th style="text-align:left;padding:8px;color:#58a6ff">Sonido</th><th style="text-align:left;padding:8px;color:#58a6ff">Cuándo</th><th style="text-align:left;padding:8px;color:#58a6ff">Qué hacer</th></tr>
+<tr style="border-bottom:1px solid #21262d"><td style="padding:8px">🔔 <strong>Beep agudo (1 corto)</strong></td><td style="padding:8px">Cada vez que el escáner HID lee un código (avanza columna)</td><td style="padding:8px">Nada, todo OK. Sigue al siguiente módulo</td></tr>
+<tr style="border-bottom:1px solid #21262d"><td style="padding:8px">🔔🔔 <strong>Doble beep + vibración</strong></td><td style="padding:8px">Llegaste al código 14 (mesa completa). La mesa se cierra sola</td><td style="padding:8px">Mirar móvil → ver semáforo → seguir o repetir</td></tr>
+<tr style="border-bottom:1px solid #21262d"><td style="padding:8px">📣 <strong>Pitido grave largo</strong></td><td style="padding:8px">GPS perdió señal o nunca la consiguió (solo si GPS marcado como requerido)</td><td style="padding:8px">Quedarte parado unos segundos a cielo abierto. Si persiste, revisa cable GPS</td></tr>
+<tr style="border-bottom:1px solid #21262d"><td style="padding:8px">🚨 <strong>Alarma fuerte (3 tonos)</strong></td><td style="padding:8px">(a) Semáforo ROJO al cerrar mesa (b) Algún escáner se desconectó</td><td style="padding:8px">PARAR. Mirar móvil. Identificar problema. Probable: revisar cable USB del escáner que falla</td></tr>
+<tr style="border-bottom:1px solid #21262d"><td style="padding:8px">🔔🔔🔔 <strong>Triple beep</strong></td><td style="padding:8px">Mesa completada con ÉXITO (semáforo verde)</td><td style="padding:8px">Pulsa "✓ ACEPTAR" en el móvil y sigue</td></tr>
+<tr><td style="padding:8px">🔔🔔 <strong>Doble beep medio</strong></td><td style="padding:8px">Mesa cerrada con ÁMBAR (algo regular pero salvable)</td><td style="padding:8px">Mirar mensaje → decidir si aceptas o repites</td></tr>
+</table>
+</div>
+
+<h2><span class="num">10</span> Avisos visuales en el móvil</h2>
+
+<ul>
+<li><strong>🟢 GPS verde con coordenadas</strong>: todo OK</li>
+<li><strong>🟡 GPS amarillo "buscando satélites"</strong>: hay conexión pero sin fix. Espera 30s a cielo abierto</li>
+<li><strong>🔴 GPS rojo "SIN CONEXIÓN — REQUERIDO"</strong>: revisa cable USB del GPS. Suena alarma</li>
+<li><strong>🔴 Banda roja "ESCÁNER E2 DESCONECTADO"</strong>: revisa cable USB del escáner indicado. Suena alarma. La captura de los demás sigue, pero ese no graba</li>
+<li><strong>🚦 Semáforo rojo</strong>: no se cumplió alguno de los criterios mínimos. Lee el mensaje. Solo se puede REPETIR la mesa</li>
+<li><strong>🚦 Semáforo ámbar</strong>: algo regular. Puedes ACEPTAR (sigues) o REPETIR (vuelves)</li>
+</ul>
+
+<h2><span class="num">11</span> Cuando llames a Rubén</h2>
 
 <p>Si algo falla, manda por WhatsApp:</p>
 <ul>
@@ -196,7 +221,7 @@ img.qr{max-width:140px;border-radius:8px}
 
 <hr>
 
-<h2><span class="num">10</span> Checklist antes de salir de casa</h2>
+<h2><span class="num">12</span> Checklist antes de salir de casa</h2>
 
 <ul>
 <li>[ ] PC cargado al 100%</li>
