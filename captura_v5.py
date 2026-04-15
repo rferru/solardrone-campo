@@ -471,13 +471,17 @@ class InterfazCaptura:
         self._ultima_foto_bytes = None
         self._ultima_foto_lock = threading.Lock()
 
-        # Detección pyzbar async (cola + worker)
-        self.pyzbar_queue = _queue.Queue(maxsize=50)  # evitar memoria infinita
-        self.pyzbar_contador = 0  # global rate limit
-        self.detecciones_zbar = {1: 0, 2: 0, 3: 0}  # códigos detectados por escáner en mesa actual
+        # Detección pyzbar async (cola + 2 workers paralelos)
+        # maxsize=100 deja ~15s de buffer si procesa 6 fotos/s
+        self.pyzbar_queue = _queue.Queue(maxsize=100)
+        self.pyzbar_contador = 0
+        self.pyzbar_descartadas = 0
+        self.detecciones_zbar = {1: 0, 2: 0, 3: 0}
         if PYZBAR_DISPONIBLE:
+            # 1 worker para ahorrar batería. Si no da abasto, la cola se llena y
+            # se descartan las fotos MÁS VIEJAS (prioriza recientes).
             threading.Thread(target=self._pyzbar_worker, daemon=True).start()
-            log("✓ pyzbar disponible — detección local activa")
+            log("✓ pyzbar disponible (1 worker) — detección local activa")
         else:
             log("⚠ pyzbar no instalado — sin detección local de códigos")
 
@@ -979,17 +983,21 @@ class InterfazCaptura:
     def _guardar_ultima_foto_miniatura(self, jpeg_bytes):
         """Llamado por EscanerFotos cada vez que guarda una foto.
         - Guarda última para preview móvil
-        - Encola para pyzbar (rate-limited cada 3ª foto)"""
+        - Encola TODAS para pyzbar; si la cola se llena, descarta las más viejas
+          (prioriza las recientes, que son las que el operario acaba de capturar)"""
         with self._ultima_foto_lock:
             self._ultima_foto_bytes = jpeg_bytes
-        # Rate limit pyzbar: 1 de cada 3 fotos para no saturar CPU
         if PYZBAR_DISPONIBLE and self.capturando:
             self.pyzbar_contador += 1
-            if self.pyzbar_contador % 3 == 0:
+            try:
+                self.pyzbar_queue.put_nowait(jpeg_bytes)
+            except _queue.Full:
+                # Cola llena → tirar la más vieja para que entre la nueva
                 try:
+                    self.pyzbar_queue.get_nowait()
                     self.pyzbar_queue.put_nowait(jpeg_bytes)
-                except _queue.Full:
-                    pass  # cola llena → descarta
+                except Exception:
+                    pass
 
     def _pyzbar_worker(self):
         """Procesa fotos en background y guarda detecciones a CSV"""
