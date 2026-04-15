@@ -190,25 +190,74 @@ class EscanerFotos:
                         continue
 
                 self.serial.reset_input_buffer()
-                self._solicitar_foto()
-
-                data = bytearray()
-                # 4s máx (q90 tarda más que q60)
-                for _ in range(400):
-                    if not self.capturando:
-                        break
-                    if self.serial.in_waiting > 0:
-                        chunk = self.serial.read(self.serial.in_waiting)
-                        data.extend(chunk)
-                        if b'\xff\xd9' in data:
-                            break
+                # Esperar que el reset haga efecto y drenar restos tardíos
+                time.sleep(0.03)
+                while self.serial.in_waiting > 0:
+                    self.serial.read(self.serial.in_waiting)
                     time.sleep(0.01)
 
+                self._solicitar_foto()
+
+                # Lectura con drenado: leer todo lo que llega sin perder bytes.
+                # Si hemos visto EOI, seguir 150ms más para asegurar cola.
+                data = bytearray()
+                t_inicio = time.time()
+                t_ult_byte = t_inicio
+                t_eoi = None
+                while True:
+                    if not self.capturando:
+                        break
+                    if time.time() - t_inicio > 5.0:
+                        break  # timeout duro
+                    waiting = self.serial.in_waiting
+                    if waiting > 0:
+                        data.extend(self.serial.read(waiting))
+                        t_ult_byte = time.time()
+                        if t_eoi is None and b'\xff\xd9' in data:
+                            t_eoi = time.time()
+                    else:
+                        # Sin bytes en buffer. Si ya vimos EOI y pasaron 150ms sin nuevos bytes → fin
+                        if t_eoi and (time.time() - t_ult_byte) > 0.15:
+                            break
+                        # Si nunca vimos EOI y pasan 2s sin bytes → timeout parcial
+                        if not t_eoi and (time.time() - t_ult_byte) > 2.0:
+                            break
+                        time.sleep(0.003)
+
+                # Usar el ÚLTIMO par SOI/EOI completo (más robusto ante basura)
                 start = data.find(b'\xff\xd8')
-                end = data.find(b'\xff\xd9', start)
+                end = data.rfind(b'\xff\xd9')
 
                 if start >= 0 and end > start:
                     jpeg = bytes(data[start:end+2])
+
+                    # Validar que el JPEG es íntegro (PIL.verify detecta corrupción)
+                    valido = True
+                    try:
+                        from PIL import Image as _PIL_Img
+                        import io as _io_v
+                        _PIL_Img.open(_io_v.BytesIO(jpeg)).verify()
+                    except Exception as _ex:
+                        valido = False
+                        log(f"⚠ E{self.escaner_id} foto corrupta descartada "
+                            f"({len(jpeg)}B, {_ex})")
+                    except Exception:
+                        pass  # si PIL no disponible, no validamos
+
+                    if not valido:
+                        # Guardar en subcarpeta "_rechazadas" por si quieres ver qué pasó
+                        try:
+                            if self.carpeta:
+                                rej = os.path.join(self.carpeta, "_rechazadas")
+                                os.makedirs(rej, exist_ok=True)
+                                ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                                with open(os.path.join(rej, f"E{self.escaner_id}_{ts}.jpg"), 'wb') as f:
+                                    f.write(jpeg)
+                        except Exception:
+                            pass
+                        self.errores_seguidos += 1
+                        continue  # saltar al siguiente ciclo
+
                     # Notificar al app para miniatura móvil (callback opcional)
                     cb = getattr(self, 'on_foto_guardada', None)
                     if cb:
