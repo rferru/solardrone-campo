@@ -997,6 +997,19 @@ class InterfazCaptura:
                 log(f"⚙ E{esc_id} brillo → {e.targetWhite} (desde móvil)")
                 return
 
+    def simular_codigo_desde_movil(self, codigo):
+        """Procesa un código como si viniera del HID. Útil para test sin escáner."""
+        codigo = ''.join(c for c in str(codigo).strip() if c.isalnum())
+        if len(codigo) < 1:
+            return
+        log(f"📲 Código simulado desde móvil: {codigo}")
+        # En thread principal Tk
+        def _simular():
+            if not self.capturando:
+                self.iniciar_captura()
+            self.procesar_codigo(codigo)
+        self.root.after(0, _simular)
+
     def auto_calibrar_desde_movil(self):
         """Auto-calibra LEDs y targetWhite por escáner.
         Estrategia: probar SIN LEDs primero. Si la foto sale clara → no hace falta LED.

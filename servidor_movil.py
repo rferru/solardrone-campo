@@ -104,6 +104,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 <div id="msgInicio" style="background:#E8F5E9;color:#2E7D32;padding:14px;border-radius:8px;font-weight:700;text-align:center;margin:8px 0">
     📖 Dispara un código con el HID y la mesa empieza sola
 </div>
+
+<details style="margin:6px 0">
+<summary style="padding:10px;background:#F5F5F5;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">🧪 MODO TEST — Disparar código manual (sin escáner HID)</summary>
+<div style="padding:10px;background:#FFF9C4;border-radius:6px;margin-top:6px">
+    <div style="font-size:12px;color:#424242;margin-bottom:6px">Escribe un código y pulsa ENVIAR. Cada uno cuenta como una columna.</div>
+    <div style="display:flex;gap:6px">
+        <input type="text" id="codigoTest" placeholder="LRPI04108..." style="flex:1;padding:10px;font-size:15px;border:2px solid #F57F17;border-radius:6px">
+        <button onclick="enviarCodigoTest()" style="padding:10px 18px;background:#F57F17;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">ENVIAR</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+        <button onclick="autoTest()" style="padding:8px 14px;background:#1565C0;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">⚡ Disparar 14 códigos test</button>
+    </div>
+</div>
+</details>
 <button class="btn btn-start" id="btnStart" onclick="cmd('/api/iniciar_mesa')" style="display:none">▶ INICIAR MESA (manual)</button>
 <button class="btn btn-stop" id="btnStop" onclick="cmd('/api/cerrar_mesa')" style="display:none">■ PARAR (cortar antes de los 14)</button>
 <button class="btn btn-next" id="btnNext" onclick="cerrarSemaforo(true)" style="display:none">✓ ACEPTAR (siguiente mesa)</button>
@@ -134,6 +148,31 @@ async function cmd(url, body){
     const opts = {method:'POST'};
     if(body){opts.headers={'Content-Type':'application/json'};opts.body=JSON.stringify(body);}
     await fetch(url, opts);
+    setTimeout(refrescar, 200);
+}
+
+function enviarCodigoTest(){
+    const inp = document.getElementById('codigoTest');
+    const codigo = inp.value.trim();
+    if(!codigo) return;
+    cmd('/api/simular_codigo', {codigo});
+    inp.value = '';
+    inp.focus();
+}
+
+// Permitir Enter para enviar
+document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('codigoTest');
+    if(inp){inp.addEventListener('keypress', e => { if(e.key === 'Enter') enviarCodigoTest(); });}
+});
+
+async function autoTest(){
+    // Dispara 14 códigos seguidos para probar flujo completo
+    for(let i = 1; i <= 14; i++){
+        await fetch('/api/simular_codigo', {method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({codigo: 'TEST' + Date.now().toString().slice(-6) + '_' + i})});
+        await new Promise(r => setTimeout(r, 600));
+    }
     setTimeout(refrescar, 200);
 }
 
@@ -461,6 +500,10 @@ def _hacer_handler(app):
                     self._ok()
                 elif self.path == '/api/auto_calibrar':
                     app.auto_calibrar_desde_movil()
+                    self._ok()
+                elif self.path == '/api/simular_codigo':
+                    codigo = data.get('codigo', '')
+                    app.simular_codigo_desde_movil(codigo)
                     self._ok()
                 else:
                     self.send_response(404); self.end_headers()
