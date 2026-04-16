@@ -32,29 +32,52 @@ try:
 except ImportError:
     BEEP_DISPONIBLE = False
 
-# pyzbar opcional para decodificar códigos en local (todos los symbologies)
+# PIL para miniaturas al móvil (crítico — si falta, seguimos sin miniaturas)
+try:
+    from PIL import Image as PIL_Image, ImageEnhance, ImageFilter
+    PIL_DISPONIBLE = True
+except Exception:
+    PIL_DISPONIBLE = False
+
+# pyzbar opcional. Puede fallar con:
+#   ImportError → módulo no instalado
+#   OSError     → Windows sin libzbar-64.dll (se detecta al usarlo, no al importarlo)
+# Hacemos prueba real decodificando una imagen dummy para detectar ambos casos al arranque.
+PYZBAR_DISPONIBLE = False
+ZBAR_ALL = []
+_zbar_error = None
 try:
     from pyzbar.pyzbar import decode as zbar_decode
     from pyzbar.pyzbar import ZBarSymbol
-    from PIL import Image as PIL_Image, ImageEnhance, ImageFilter
-    PYZBAR_DISPONIBLE = True
-    # Todos los tipos que pyzbar puede leer — explícito para claridad
-    ZBAR_ALL = [
-        ZBarSymbol.CODE128, ZBarSymbol.CODE39, ZBarSymbol.CODE93,
-        ZBarSymbol.EAN13, ZBarSymbol.EAN8, ZBarSymbol.UPCA, ZBarSymbol.UPCE,
-        ZBarSymbol.I25, ZBarSymbol.DATABAR, ZBarSymbol.DATABAR_EXP,
-        ZBarSymbol.CODABAR, ZBarSymbol.QRCODE, ZBarSymbol.PDF417,
-    ]
-except ImportError:
-    PYZBAR_DISPONIBLE = False
-    ZBAR_ALL = []
+    if PIL_DISPONIBLE:
+        # Prueba real — fuerza la carga de libzbar; si falla aquí, sabemos que no sirve
+        _test_img = PIL_Image.new('L', (50, 50), 255)
+        zbar_decode(_test_img)  # si libzbar no carga, lanza OSError aquí
+        PYZBAR_DISPONIBLE = True
+        ZBAR_ALL = [
+            ZBarSymbol.CODE128, ZBarSymbol.CODE39, ZBarSymbol.CODE93,
+            ZBarSymbol.EAN13, ZBarSymbol.EAN8, ZBarSymbol.UPCA, ZBarSymbol.UPCE,
+            ZBarSymbol.I25, ZBarSymbol.DATABAR, ZBarSymbol.DATABAR_EXP,
+            ZBarSymbol.CODABAR, ZBarSymbol.QRCODE, ZBarSymbol.PDF417,
+        ]
+except ImportError as e:
+    _zbar_error = f"no instalado ({e})"
+except Exception as e:
+    _zbar_error = f"instalado pero no carga la DLL ({e})"
 
-# zxing-cpp opcional (fallback si zbar falla — a veces lee códigos difíciles mejor)
+# zxing-cpp opcional — mismo tratamiento defensivo
+ZXING_DISPONIBLE = False
+_zxing_error = None
 try:
     import zxingcpp
-    ZXING_DISPONIBLE = True
-except ImportError:
-    ZXING_DISPONIBLE = False
+    if PIL_DISPONIBLE:
+        _test_img = PIL_Image.new('L', (50, 50), 255)
+        zxingcpp.read_barcodes(_test_img)  # fuerza carga
+        ZXING_DISPONIBLE = True
+except ImportError as e:
+    _zxing_error = f"no instalado ({e})"
+except Exception as e:
+    _zxing_error = f"instalado pero falla ({e})"
 
 import io as _io
 import queue as _queue
@@ -497,14 +520,16 @@ class InterfazCaptura:
         self.pyzbar_buffer_mesa = []  # para modo "solo_al_cerrar"
         self.detecciones_zbar = {1: 0, 2: 0, 3: 0}
         self.codigos_zbar_unicos = set()  # dedup: códigos únicos leídos en la mesa
-        if PYZBAR_DISPONIBLE:
+        if PYZBAR_DISPONIBLE or ZXING_DISPONIBLE:
             threading.Thread(target=self._pyzbar_worker, daemon=True).start()
-            libs = ["pyzbar"]
-            if ZXING_DISPONIBLE:
-                libs.append("zxing-cpp")
+            libs = []
+            if PYZBAR_DISPONIBLE: libs.append("pyzbar")
+            if ZXING_DISPONIBLE:  libs.append("zxing-cpp")
             log(f"✓ Detección local activa — librerías: {'+'.join(libs)}")
         else:
-            log("⚠ pyzbar no instalado — sin detección local de códigos")
+            log(f"⚠ Sin detección local (captura funciona igual)")
+            if _zbar_error:  log(f"   pyzbar: {_zbar_error}")
+            if _zxing_error: log(f"   zxing-cpp: {_zxing_error}")
 
         os.makedirs(RUTA_CAPTURAS, exist_ok=True)
 
@@ -1078,25 +1103,30 @@ class InterfazCaptura:
         Devuelve lista de (codigo, tipo, metodo). Para en la primera que lea."""
         resultados = []
 
-        # 1) zbar en imagen original (rápido, ~30-50ms) — TODOS los symbologies
-        for r in zbar_decode(img_l, symbols=ZBAR_ALL):
-            resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar'))
-        if resultados:
-            return resultados
-
-        # 2) zbar en imagen 2x con sharpen + contraste (para códigos pequeños)
         img_big = None
-        try:
-            w, h = img_l.size
-            img_big = img_l.resize((w * 2, h * 2), PIL_Image.LANCZOS)
-            img_big = ImageEnhance.Contrast(img_big).enhance(1.4)
-            img_big = img_big.filter(ImageFilter.SHARPEN)
-            for r in zbar_decode(img_big, symbols=ZBAR_ALL):
-                resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar+2x'))
-            if resultados:
-                return resultados
-        except Exception:
-            pass
+
+        # 1) zbar en imagen original (rápido, ~30-50ms) — TODOS los symbologies
+        if PYZBAR_DISPONIBLE:
+            try:
+                for r in zbar_decode(img_l, symbols=ZBAR_ALL):
+                    resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar'))
+                if resultados:
+                    return resultados
+            except Exception:
+                pass
+
+            # 2) zbar en imagen 2x con sharpen + contraste (para códigos pequeños)
+            try:
+                w, h = img_l.size
+                img_big = img_l.resize((w * 2, h * 2), PIL_Image.LANCZOS)
+                img_big = ImageEnhance.Contrast(img_big).enhance(1.4)
+                img_big = img_big.filter(ImageFilter.SHARPEN)
+                for r in zbar_decode(img_big, symbols=ZBAR_ALL):
+                    resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar+2x'))
+                if resultados:
+                    return resultados
+            except Exception:
+                pass
 
         # 3) zxing-cpp (si está instalado — a veces lee códigos que zbar no)
         if ZXING_DISPONIBLE:
