@@ -183,6 +183,16 @@ async function aplicarLeds(escId, encendido){
     toast('LEDs E' + escId + ' → ' + (encendido ? 'ON' : 'OFF'));
 }
 
+async function aplicarManualExp(escId, valor){
+    await fetch('/api/set_manual_exp/' + escId + '/' + valor, {method:'POST'});
+    toast('E' + escId + ' exp → ' + valor + ' (' + (valor*0.127).toFixed(1) + 'ms)');
+}
+
+async function aplicarManualGain(escId, valor){
+    await fetch('/api/set_manual_gain/' + escId + '/' + valor, {method:'POST'});
+    toast('E' + escId + ' gain → ' + valor);
+}
+
 const MODO_DESC = {
     normal:    '🌤 NORMAL — LEDs ON, tW 80',
     sol:       '☀ SOL — LEDs OFF, tW 50',
@@ -233,6 +243,13 @@ async function refrescar(){
     try {
         const r = await fetch('/api/estado');
         const s = await r.json();
+
+        // CRÍTICO: botones INICIAR/PARAR al principio, no vaya a ser que una
+        // excepción más abajo los deje descolocados
+        try {
+            document.getElementById('btnStart').style.display = s.capturando ? 'none' : 'block';
+            document.getElementById('btnStop').style.display  = s.capturando ? 'block' : 'none';
+        } catch(e) { console.error('botones:', e); }
 
         document.getElementById('mesaNum').textContent = s.mesa_nombre || s.mesa_numero;
         document.getElementById('columna').textContent = s.columna_actual + ' / ' + s.columnas_total;
@@ -385,15 +402,36 @@ async function refrescar(){
             s.escaneres.forEach(e => {
                 const div = document.createElement('div');
                 div.className = 'slider-row';
-                div.innerHTML = '<label>E'+e.id+':</label>' +
+                const exp = e.manual_exp || 300;
+                const gain = e.manual_gain || 2;
+                div.innerHTML = '<div style="width:100%">' +
+                    '<div style="display:flex;align-items:center;gap:8px">' +
+                    '<label style="font-weight:700;min-width:35px">E'+e.id+':</label>' +
                     '<input type="range" min="20" max="200" value="'+e.targetWhite+'" id="sl_'+e.id+'" ' +
+                    'style="flex:1" ' +
                     'oninput="document.getElementById(\\'val_\\' + '+e.id+').textContent=this.value" ' +
                     'onchange="aplicarBrillo('+e.id+', this.value)">' +
                     '<span class="val" id="val_'+e.id+'">'+e.targetWhite+'</span>' +
-                    '<label style="margin-left:10px;display:flex;align-items:center;gap:4px;cursor:pointer">' +
+                    '<label style="display:flex;align-items:center;gap:4px;cursor:pointer">' +
                     '<input type="checkbox" id="led_'+e.id+'" '+(e.leds?'checked':'')+' ' +
                     'onchange="aplicarLeds('+e.id+', this.checked)" style="width:20px;height:20px">' +
-                    '<span style="font-size:12px;font-weight:700">LED</span></label>';
+                    '<span style="font-size:12px;font-weight:700">LED</span></label>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:11px;color:#555">' +
+                    '<span style="min-width:35px">exp:</span>' +
+                    '<input type="range" min="10" max="2000" step="10" value="'+exp+'" id="exp_'+e.id+'" ' +
+                    'style="flex:1" ' +
+                    'oninput="document.getElementById(\\'expv_\\' + '+e.id+').textContent=this.value+\\' (\\' + (this.value*0.127).toFixed(1) + \\'ms)\\'" ' +
+                    'onchange="aplicarManualExp('+e.id+', this.value)">' +
+                    '<span id="expv_'+e.id+'" style="min-width:90px;font-weight:700">'+exp+' ('+(exp*0.127).toFixed(1)+'ms)</span>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;margin-top:2px;font-size:11px;color:#555">' +
+                    '<span style="min-width:35px">gain:</span>' +
+                    ['1','2','4','8'].map(g => '<label style="cursor:pointer">' +
+                        '<input type="radio" name="gain_'+e.id+'" value="'+g+'" '+(gain==g?'checked':'')+' ' +
+                        'onchange="aplicarManualGain('+e.id+', '+g+')"> '+g+
+                        '</label>').join(' ') +
+                    '</div></div>';
                 box.appendChild(div);
             });
         }
@@ -631,6 +669,16 @@ def _hacer_handler(app):
                 elif self.path.startswith('/api/set_modo/'):
                     modo = self.path.split('/')[3]
                     app.set_modo_desde_movil(modo)
+                    self._ok()
+                elif self.path.startswith('/api/set_manual_exp/'):
+                    partes = self.path.split('/')
+                    esc_id = int(partes[3]); valor = int(partes[4])
+                    app.set_manual_exp(esc_id, valor)
+                    self._ok()
+                elif self.path.startswith('/api/set_manual_gain/'):
+                    partes = self.path.split('/')
+                    esc_id = int(partes[3]); valor = int(partes[4])
+                    app.set_manual_gain(esc_id, valor)
                     self._ok()
                 elif self.path == '/api/auto_calibrar':
                     app.auto_calibrar_desde_movil()

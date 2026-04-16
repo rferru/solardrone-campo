@@ -125,6 +125,10 @@ class EscanerFotos:
         self.targetWhite = targetWhite
         self.leds = leds
         self.modo = modo  # normal | sol | sol_fuerte | manual | bracketing
+        # Parámetros del modo manual (2P). Unidades: E×127µs, G=1/2/4/8 (nunca 3,5,6,7)
+        # Default 300E (38ms) + 2G → equilibrio usable en luz ambiente
+        self.manual_exp = 300
+        self.manual_gain = 2
         self.serial = None
         self.capturando = False
         self.thread = None
@@ -226,12 +230,12 @@ class EscanerFotos:
         elif m == 'sol_fuerte':
             snp = f"IMGSNP1P0L{tw}W90%"
         elif m == 'manual':
-            snp = f"IMGSNP2P{luz}50E8G"
+            snp = f"IMGSNP2P{luz}{self.manual_exp}E{self.manual_gain}G"
         elif m == 'bracketing':
             if self.contador % 2 == 0:
                 snp = f"IMGSNP1P{luz}{tw}W"
             else:
-                snp = f"IMGSNP2P0L50E8G"
+                snp = f"IMGSNP2P0L{self.manual_exp}E{self.manual_gain}G"
         else:
             snp = f"IMGSNP1P{luz}{tw}W"
 
@@ -1062,6 +1066,8 @@ class InterfazCaptura:
                 'targetWhite': e.targetWhite,
                 'leds': e.leds,
                 'modo': e.modo,
+                'manual_exp': e.manual_exp,
+                'manual_gain': e.manual_gain,
                 'fotos': e.contador,
                 'conectado': bool(e.serial and e.serial.is_open),
             })
@@ -1302,6 +1308,24 @@ class InterfazCaptura:
             if e.escaner_id == esc_id:
                 e.leds = bool(encendido)
                 log(f"⚙ E{esc_id} LEDs → {'ON' if e.leds else 'OFF'} (desde móvil)")
+                return
+
+    def set_manual_exp(self, esc_id, valor):
+        """Ajusta exposición del modo manual (units = 127µs; range 1-7874)"""
+        valor = max(1, min(7874, int(valor)))
+        for e in self.escaneres_fotos:
+            if e.escaner_id == esc_id:
+                e.manual_exp = valor
+                log(f"⚙ E{esc_id} manual_exp → {valor} (≈{valor*0.127:.1f}ms)")
+                return
+
+    def set_manual_gain(self, esc_id, valor):
+        """Ajusta gain del modo manual (solo 1, 2, 4 o 8)"""
+        valor = min([1, 2, 4, 8], key=lambda x: abs(x - int(valor)))
+        for e in self.escaneres_fotos:
+            if e.escaner_id == esc_id:
+                e.manual_gain = valor
+                log(f"⚙ E{esc_id} manual_gain → {valor}")
                 return
 
     def set_modo_desde_movil(self, modo):
