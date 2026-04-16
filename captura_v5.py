@@ -256,18 +256,19 @@ class EscanerFotos:
                 if start >= 0 and end > start:
                     jpeg = bytes(data[start:end+2])
 
-                    # Validar que el JPEG es íntegro (PIL.verify detecta corrupción)
+                    # Validar JPEG con PIL si está disponible; si no, confiar en los marcadores
                     valido = True
                     try:
                         from PIL import Image as _PIL_Img
                         import io as _io_v
-                        _PIL_Img.open(_io_v.BytesIO(jpeg)).verify()
-                    except Exception as _ex:
-                        valido = False
-                        log(f"⚠ E{self.escaner_id} foto corrupta descartada "
-                            f"({len(jpeg)}B, {_ex})")
-                    except Exception:
-                        pass  # si PIL no disponible, no validamos
+                        try:
+                            _PIL_Img.open(_io_v.BytesIO(jpeg)).verify()
+                        except Exception as _ex:
+                            valido = False
+                            log(f"⚠ E{self.escaner_id} foto corrupta descartada "
+                                f"({len(jpeg)}B, {_ex})")
+                    except ImportError:
+                        pass  # PIL no disponible → asumimos válido (marcadores ya OK)
 
                     if not valido:
                         # Guardar en subcarpeta "_rechazadas" por si quieres ver qué pasó
