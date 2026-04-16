@@ -251,89 +251,88 @@ async function refrescar(){
             document.getElementById('btnStop').style.display  = s.capturando ? 'block' : 'none';
         } catch(e) { console.error('botones:', e); }
 
-        document.getElementById('mesaNum').textContent = s.mesa_nombre || s.mesa_numero;
-        document.getElementById('columna').textContent = s.columna_actual + ' / ' + s.columnas_total;
-        document.getElementById('e1f').textContent = s.fotos[0] || 0;
-        document.getElementById('e2f').textContent = s.fotos[1] || 0;
-        document.getElementById('e3f').textContent = s.fotos[2] || 0;
+        // Bloque de textos básicos (cada uno tolera a fallos de su vecino)
+        try { document.getElementById('mesaNum').textContent = s.mesa_nombre || s.mesa_numero; } catch(e) {}
+        try { document.getElementById('columna').textContent = (s.columna_actual||0) + ' códigos'; } catch(e) {}
+        try { document.getElementById('e1f').textContent = (s.fotos && s.fotos[0]) || 0; } catch(e) {}
+        try { document.getElementById('e2f').textContent = (s.fotos && s.fotos[1]) || 0; } catch(e) {}
+        try { document.getElementById('e3f').textContent = (s.fotos && s.fotos[2]) || 0; } catch(e) {}
 
-        // pyzbar (si está disponible)
-        if(s.detecciones_zbar !== null && s.detecciones_zbar !== undefined){
-            document.getElementById('zbarBox').style.display = 'block';
-            document.getElementById('zbarVal').textContent = s.detecciones_zbar;
-        }
+        // pyzbar
+        try {
+            if(s.detecciones_zbar !== null && s.detecciones_zbar !== undefined){
+                document.getElementById('zbarBox').style.display = 'block';
+                document.getElementById('zbarVal').textContent = s.detecciones_zbar;
+            }
+            const sel = document.getElementById('pyzbarModo');
+            if(sel && s.pyzbar_modo && sel.value !== s.pyzbar_modo){
+                sel.value = s.pyzbar_modo;
+            }
+            const info = document.getElementById('pyzbarInfo');
+            if(info){
+                if(!s.pyzbar_disponible){
+                    info.textContent = '⚠ pyzbar no instalado';
+                    if(sel) sel.disabled = true;
+                } else {
+                    info.textContent = 'Modo actual: ' + (s.pyzbar_modo || '—');
+                }
+            }
+        } catch(e) { console.error('pyzbar ui:', e); }
 
-        // Selector de modo pyzbar
-        const sel = document.getElementById('pyzbarModo');
-        if(sel && s.pyzbar_modo && sel.value !== s.pyzbar_modo){
-            sel.value = s.pyzbar_modo;
-        }
-        const info = document.getElementById('pyzbarInfo');
-        if(info){
-            if(!s.pyzbar_disponible){
-                info.textContent = '⚠ pyzbar no instalado — instala con: pip install pyzbar pillow';
-                if(sel) sel.disabled = true;
+        // GPS
+        try {
+            const gpsEl = document.getElementById('gpsBox');
+            const gpsReq = s.gps_requerido;
+            lastGpsRequerido = gpsReq;
+            if(s.gps_ok && s.gps_lat != null){
+                gpsEl.className = 'gps ok';
+                gpsEl.textContent = 'GPS ✓ ' + s.gps_lat.toFixed(5) + ', ' + s.gps_lon.toFixed(5) + ' (' + s.gps_sat + ' sat)';
+                lastGpsOk = true;
+            } else if(s.gps_connected){
+                gpsEl.className = 'gps warn';
+                gpsEl.textContent = 'GPS ⏳ buscando satélites…';
+                if(lastGpsOk && gpsReq){try{document.getElementById('aLost').play();}catch(_){}navigator.vibrate&&navigator.vibrate([200,100,200])}
+                lastGpsOk = false;
+            } else if(gpsReq){
+                gpsEl.className = 'gps err';
+                gpsEl.textContent = 'GPS ✗ SIN CONEXIÓN — REQUERIDO';
+                if(lastGpsOk){try{document.getElementById('aLost').play();}catch(_){}navigator.vibrate&&navigator.vibrate([200,100,200])}
+                lastGpsOk = false;
             } else {
-                info.textContent = 'Modo actual: ' + (s.pyzbar_modo || '—');
+                gpsEl.className = 'gps warn';
+                gpsEl.textContent = 'GPS no configurado (modo test)';
+                lastGpsOk = true;
             }
-        }
+        } catch(e) { console.error('gps ui:', e); }
 
-        // GPS — solo alarma si está requerido
-        const gpsEl = document.getElementById('gpsBox');
-        const gpsReq = s.gps_requerido;
-        lastGpsRequerido = gpsReq;
-        if(s.gps_ok && s.gps_lat){
-            gpsEl.className = 'gps ok';
-            gpsEl.textContent = 'GPS ✓ ' + s.gps_lat.toFixed(5) + ', ' + s.gps_lon.toFixed(5) + ' (' + s.gps_sat + ' sat)';
-            lastGpsOk = true;
-        } else if(s.gps_connected){
-            gpsEl.className = 'gps warn';
-            gpsEl.textContent = 'GPS ⏳ buscando satélites…';
-            if(lastGpsOk && gpsReq){document.getElementById('aLost').play().catch(()=>{});navigator.vibrate&&navigator.vibrate([200,100,200])}
-            lastGpsOk = false;
-        } else if(gpsReq){
-            gpsEl.className = 'gps err';
-            gpsEl.textContent = 'GPS ✗ SIN CONEXIÓN — REQUERIDO';
-            if(lastGpsOk){document.getElementById('aLost').play().catch(()=>{});navigator.vibrate&&navigator.vibrate([200,100,200])}
-            lastGpsOk = false;
-        } else {
-            gpsEl.className = 'gps warn';
-            gpsEl.textContent = 'GPS no configurado (modo test)';
-            lastGpsOk = true;
-        }
-
-        // Alarma de escáner desconectado (durante captura)
-        const desconEl = document.getElementById('alarmaHW');
-        const descon = (s.escaneres_desconectados || []).join(',');
-        if(descon){
-            desconEl.style.display = 'block';
-            document.getElementById('alarmaHWtxt').textContent = 'ESCÁNER E' + descon + ' DESCONECTADO';
-            if(descon !== lastDescon){
-                document.getElementById('aAlarm').play().catch(()=>{});
-                navigator.vibrate && navigator.vibrate([400,200,400,200,400]);
+        // Alarma escáner desconectado
+        try {
+            const desconEl = document.getElementById('alarmaHW');
+            const descon = (s.escaneres_desconectados || []).join(',');
+            if(descon){
+                desconEl.style.display = 'block';
+                document.getElementById('alarmaHWtxt').textContent = 'ESCÁNER E' + descon + ' DESCONECTADO';
+                if(descon !== lastDescon){
+                    try{document.getElementById('aAlarm').play();}catch(_){}
+                    navigator.vibrate && navigator.vibrate([400,200,400,200,400]);
+                }
+            } else {
+                desconEl.style.display = 'none';
             }
-        } else {
-            desconEl.style.display = 'none';
-        }
-        lastDescon = descon;
-
-        // Botones INICIAR/PARAR desde el móvil (manual, el HID también los dispara)
-        document.getElementById('btnStart').style.display = s.capturando ? 'none' : 'block';
-        document.getElementById('btnStop').style.display  = s.capturando ? 'block' : 'none';
+            lastDescon = descon;
+        } catch(e) { console.error('descon ui:', e); }
 
         // Sonido al llegar código nuevo
-        if(s.columna_actual > lastCol){
-            if(s.columna_actual === s.columnas_total){
-                document.getElementById('aDouble').play().catch(()=>{});
-                navigator.vibrate && navigator.vibrate([150,80,150]);
-            } else {
-                document.getElementById('aBeep').play().catch(()=>{});
+        try {
+            if(s.columna_actual > lastCol){
+                try{document.getElementById('aBeep').play();}catch(_){}
                 navigator.vibrate && navigator.vibrate(80);
             }
-        }
-        lastCol = s.columna_actual;
+            lastCol = s.columna_actual;
+        } catch(e) { console.error('beep ui:', e); }
 
         // Semáforo
+        try {
         if(s.semaforo && s.semaforo.estado && !semaforoShowing){
             const sem = document.getElementById('semaforo');
             sem.className = 'sem show ' + s.semaforo.estado;
@@ -348,24 +347,28 @@ async function refrescar(){
                 document.getElementById('btnRepeat').style.display = 'block';
             }
             if(s.semaforo.estado === 'rojo'){
-                document.getElementById('aAlarm').play().catch(()=>{});
+                try{document.getElementById('aAlarm').play();}catch(_){}
                 navigator.vibrate && navigator.vibrate([500,200,500,200,500]);
             } else if(s.semaforo.estado === 'ambar'){
-                document.getElementById('aLost').play().catch(()=>{});
+                try{document.getElementById('aLost').play();}catch(_){}
                 navigator.vibrate && navigator.vibrate([300,100,300]);
             } else {
-                document.getElementById('aDouble').play().catch(()=>{});
+                try{document.getElementById('aDouble').play();}catch(_){}
                 navigator.vibrate && navigator.vibrate([150,80,150,80,150]);
             }
             semaforoShowing = true;
         }
+        } catch(e) { console.error('semaforo ui:', e); }
 
-        // Destacar botón del modo actual (tomamos el modo del primer escáner)
-        if(s.escaneres && s.escaneres.length){
-            destacarBotonModo(s.escaneres[0].modo || 'normal');
-        }
+        // Destacar botón del modo actual
+        try {
+            if(s.escaneres && s.escaneres.length){
+                destacarBotonModo(s.escaneres[0].modo || 'normal');
+            }
+        } catch(e) { console.error('destacar modo:', e); }
 
         // Barra de estado de escáneres
+        try {
         for(let i = 1; i <= 3; i++){
             const el = document.getElementById('stE' + i);
             const e = (s.escaneres || []).find(x => x.id === i);
@@ -391,9 +394,11 @@ async function refrescar(){
             gpsSt.style.background = '#BDBDBD'; gpsSt.style.color = '#424242';
             gpsSt.textContent = 'GPS —';
         }
+        } catch(e) { console.error('barra escáneres:', e); }
 
         // Sliders — se (re)crean si el nº de escáneres en DOM no coincide con el estado
-        // (si por algún motivo quedan 0 cuando deberían ser 3, el próximo refresh los recrea)
+        // Blindado: si falla, el próximo refresh lo reintenta
+        try {
         const box = document.getElementById('slidersBox');
         const nEscDom = box.children.length;
         const nEscEstado = (s.escaneres || []).length;
@@ -435,9 +440,10 @@ async function refrescar(){
                 box.appendChild(div);
             });
         }
+        } catch(e) { console.error('sliders:', e); }
 
     } catch(e) {
-        console.error(e);
+        console.error('refrescar top:', e);
     }
 }
 
