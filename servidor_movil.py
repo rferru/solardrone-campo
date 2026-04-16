@@ -108,6 +108,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 <details style="margin-top:14px">
 <summary style="padding:10px;background:#F5F5F5;border-radius:8px;font-weight:700;cursor:pointer">⚙ Ajustes (cámaras)</summary>
 <div class="sliders">
+    <h3>Perfiles rápidos (aplica a los 3 escáneres)</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <button class="btn" style="background:#F57F17;color:#fff;padding:14px;font-size:14px" onclick="aplicarModo('sol')">☀ MODO SOL<br><small style="font-weight:400;opacity:0.9">LEDs OFF · tW 50</small></button>
+        <button class="btn" style="background:#1565C0;color:#fff;padding:14px;font-size:14px" onclick="aplicarModo('normal')">🌤 MODO NORMAL<br><small style="font-weight:400;opacity:0.9">LEDs ON · tW 80</small></button>
+    </div>
+
     <h3>Brillo por escáner (targetWhite)</h3>
     <div id="slidersBox"></div>
     <button class="btn btn-cal" onclick="cmd('/api/auto_calibrar')">🎯 AUTO-CALIBRAR TODOS</button>
@@ -164,6 +170,14 @@ async function aplicarBrillo(escId, valor){
 async function aplicarLeds(escId, encendido){
     await fetch('/api/set_leds/' + escId + '/' + (encendido ? '1' : '0'), {method:'POST'});
     toast('LEDs E' + escId + ' → ' + (encendido ? 'ON' : 'OFF'));
+}
+
+async function aplicarModo(modo){
+    await fetch('/api/set_modo/' + modo, {method:'POST'});
+    toast(modo === 'sol' ? '☀ MODO SOL aplicado (LEDs OFF, tW 50)' : '🌤 MODO NORMAL aplicado (LEDs ON, tW 80)', 2500);
+    // Actualizar UI: refrescar sliders y checkboxes forzando rerender
+    document.getElementById('slidersBox').innerHTML = '';
+    setTimeout(refrescar, 400);
 }
 
 function setPyzbarModo(modo){
@@ -543,6 +557,10 @@ def _hacer_handler(app):
                     partes = self.path.split('/')
                     esc_id = int(partes[3]); encendido = partes[4] == '1'
                     app.set_leds_desde_movil(esc_id, encendido)
+                    self._ok()
+                elif self.path.startswith('/api/set_modo/'):
+                    modo = self.path.split('/')[3]
+                    app.set_modo_desde_movil(modo)
                     self._ok()
                 elif self.path == '/api/auto_calibrar':
                     app.auto_calibrar_desde_movil()

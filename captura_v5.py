@@ -309,6 +309,12 @@ class EscanerFotos:
                     ruta = os.path.join(self.carpeta, nombre)
                     with open(ruta, 'wb') as f:
                         f.write(jpeg)
+                    # Guardar metadata de config + GPS para análisis posterior
+                    cb_meta = getattr(self, 'on_foto_metadata', None)
+                    if cb_meta:
+                        try: cb_meta(nombre, self.escaner_id, self.targetWhite,
+                                    self.leds, len(jpeg))
+                        except Exception: pass
                     self.errores_seguidos = 0
                 else:
                     self.errores_seguidos += 1
@@ -758,6 +764,7 @@ class InterfazCaptura:
             if puerto or sn:
                 e = EscanerFotos(i, puerto, targetWhite=tw, leds=leds, serial_number_hw=sn)
                 e.on_foto_guardada = self._guardar_ultima_foto_miniatura
+                e.on_foto_metadata = self._guardar_metadata_foto
                 if e.conectar():
                     self.escaneres_fotos.append(e)
         log(f"✓ {len(self.escaneres_fotos)}/3 escáneres conectados")
@@ -1065,6 +1072,31 @@ class InterfazCaptura:
                 return self._ultima_foto_por_esc.get(esc_id)
             return self._ultima_foto_bytes
 
+    def _guardar_metadata_foto(self, nombre, esc_id, targetWhite, leds, size):
+        """Añade fila a capturas/<mesa>/fotos_metadata.csv con config + GPS de cada foto.
+        Permite analizar post-captura qué configs dieron mejor detección."""
+        if not self.carpeta_mesa:
+            return
+        ruta = os.path.join(self.carpeta_mesa, "fotos_metadata.csv")
+        nueva = not os.path.exists(ruta)
+        try:
+            with open(ruta, 'a', encoding='utf-8') as f:
+                if nueva:
+                    f.write("timestamp,archivo,escaner,targetWhite,leds,size_kb,"
+                           "gps_lat,gps_lon,gps_alt,gps_sat,gps_hdop,gps_fix\n")
+                ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                gps_lat = self.gps.lat if self.gps else ''
+                gps_lon = self.gps.lon if self.gps else ''
+                gps_alt = self.gps.alt if self.gps else ''
+                gps_sat = self.gps.satelites if self.gps else ''
+                gps_hdop = self.gps.hdop if self.gps else ''
+                gps_fix = 'OK' if (self.gps and self.gps.conectado) else 'NO_FIX'
+                f.write(f"{ts},{nombre},{esc_id},{targetWhite},{int(bool(leds))},"
+                       f"{size/1024:.1f},{gps_lat},{gps_lon},{gps_alt},{gps_sat},"
+                       f"{gps_hdop},{gps_fix}\n")
+        except Exception as e:
+            log(f"⚠ metadata: {e}")
+
     def _guardar_ultima_foto_miniatura(self, jpeg_bytes, esc_id=None):
         """Llamado por EscanerFotos cada vez que guarda una foto.
         - Guarda última para preview móvil (por escáner + global)
@@ -1225,6 +1257,22 @@ class InterfazCaptura:
                 e.leds = bool(encendido)
                 log(f"⚙ E{esc_id} LEDs → {'ON' if e.leds else 'OFF'} (desde móvil)")
                 return
+
+    def set_modo_desde_movil(self, modo):
+        """Aplica un perfil a los 3 escáneres.
+        sol   → LEDs OFF, tW 50 (alto contraste, evita quemado bajo sol directo)
+        normal→ LEDs ON,  tW 80 (default, luz ambiente o poca luz)"""
+        if modo == 'sol':
+            tw, leds = 50, False
+        elif modo == 'normal':
+            tw, leds = 80, True
+        else:
+            log(f"⚠ Modo desconocido: {modo}")
+            return
+        for e in self.escaneres_fotos:
+            e.targetWhite = tw
+            e.leds = leds
+        log(f"⚙ MODO {modo.upper()} aplicado a {len(self.escaneres_fotos)} escáneres (tW={tw}, LEDs={'ON' if leds else 'OFF'})")
 
     def set_pyzbar_modo(self, modo):
         """Cambia el modo de pyzbar en vivo. Persiste en config.json.
