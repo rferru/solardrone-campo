@@ -191,9 +191,10 @@ class EscanerFotos:
             self.thread.join(timeout=2.0)
 
     def _solicitar_foto(self):
-        """Captura con LEDs + q90 (óptimo validado 2026-04-15)"""
+        """Captura con LEDs + q90 + 0P (protocolo raw USB, necesario).
+        Sin el 0P los escáneres interpretan default 3P (Hmodem) y no envían JPEG."""
         luz = "1L" if self.leds else "0L"
-        comando = f"\x16M\rIMGSNP1P{luz}{self.targetWhite}W;IMGSHP6F90J.\r".encode()
+        comando = f"\x16M\rIMGSNP1P{luz}{self.targetWhite}W;IMGSHP6F90J0P.\r".encode()
         self.serial.write(comando)
 
     def _bucle(self):
