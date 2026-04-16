@@ -108,11 +108,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 <details style="margin-top:14px">
 <summary style="padding:10px;background:#F5F5F5;border-radius:8px;font-weight:700;cursor:pointer">⚙ Ajustes (cámaras)</summary>
 <div class="sliders">
-    <h3>Perfiles rápidos (aplica a los 3 escáneres)</h3>
+    <h3>Perfil de captura (aplica a los 3 escáneres)</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-        <button class="btn" style="background:#F57F17;color:#fff;padding:14px;font-size:14px" onclick="aplicarModo('sol')">☀ MODO SOL<br><small style="font-weight:400;opacity:0.9">LEDs OFF · tW 50</small></button>
-        <button class="btn" style="background:#1565C0;color:#fff;padding:14px;font-size:14px" onclick="aplicarModo('normal')">🌤 MODO NORMAL<br><small style="font-weight:400;opacity:0.9">LEDs ON · tW 80</small></button>
+        <button class="btn modo-btn" data-modo="normal"     style="background:#1565C0;color:#fff;padding:12px;font-size:13px" onclick="aplicarModo('normal')">🌤 NORMAL<br><small style="font-weight:400;opacity:0.9">sombra/nublado</small></button>
+        <button class="btn modo-btn" data-modo="sol"        style="background:#F57F17;color:#fff;padding:12px;font-size:13px" onclick="aplicarModo('sol')">☀ SOL<br><small style="font-weight:400;opacity:0.9">sol medio</small></button>
+        <button class="btn modo-btn" data-modo="sol_fuerte" style="background:#E65100;color:#fff;padding:12px;font-size:13px" onclick="aplicarModo('sol_fuerte')">☀☀ SOL FUERTE<br><small style="font-weight:400;opacity:0.9">sol directo</small></button>
+        <button class="btn modo-btn" data-modo="manual"     style="background:#6A1B9A;color:#fff;padding:12px;font-size:13px" onclick="aplicarModo('manual')">⚡ MANUAL<br><small style="font-weight:400;opacity:0.9">exp corta fija</small></button>
+        <button class="btn modo-btn" data-modo="bracketing" style="background:#00695C;color:#fff;padding:12px;font-size:13px;grid-column:span 2" onclick="aplicarModo('bracketing')">🔀 BRACKETING (HDR)<br><small style="font-weight:400;opacity:0.9">alterna normal+manual (sol impredecible)</small></button>
     </div>
+    <div id="modoActual" style="padding:8px;background:#F5F5F5;border-radius:6px;font-size:12px;text-align:center;margin-bottom:8px">Modo actual: —</div>
 
     <h3>Brillo por escáner (targetWhite)</h3>
     <div id="slidersBox"></div>
@@ -172,12 +176,33 @@ async function aplicarLeds(escId, encendido){
     toast('LEDs E' + escId + ' → ' + (encendido ? 'ON' : 'OFF'));
 }
 
+const MODO_DESC = {
+    normal:    '🌤 NORMAL — LEDs ON, tW 80',
+    sol:       '☀ SOL — LEDs OFF, tW 50',
+    sol_fuerte:'☀☀ SOL FUERTE — LEDs OFF, tW 40 + 90%',
+    manual:    '⚡ MANUAL — exp 6.35ms + gain 8',
+    bracketing:'🔀 BRACKETING — alterna normal/manual'
+};
+
 async function aplicarModo(modo){
     await fetch('/api/set_modo/' + modo, {method:'POST'});
-    toast(modo === 'sol' ? '☀ MODO SOL aplicado (LEDs OFF, tW 50)' : '🌤 MODO NORMAL aplicado (LEDs ON, tW 80)', 2500);
-    // Actualizar UI: refrescar sliders y checkboxes forzando rerender
+    toast(MODO_DESC[modo] || modo, 2500);
+    // Forzar rerender de sliders
     document.getElementById('slidersBox').innerHTML = '';
     setTimeout(refrescar, 400);
+}
+
+function destacarBotonModo(modo){
+    document.querySelectorAll('.modo-btn').forEach(b => {
+        if(b.dataset.modo === modo){
+            b.style.outline = '4px solid #FFEB3B';
+            b.style.outlineOffset = '-2px';
+        } else {
+            b.style.outline = '';
+        }
+    });
+    const info = document.getElementById('modoActual');
+    if(info) info.textContent = 'Modo actual: ' + (MODO_DESC[modo] || modo);
 }
 
 function setPyzbarModo(modo){
@@ -309,9 +334,18 @@ async function refrescar(){
             semaforoShowing = true;
         }
 
-        // Sliders
+        // Destacar botón del modo actual (tomamos el modo del primer escáner)
+        if(s.escaneres && s.escaneres.length){
+            destacarBotonModo(s.escaneres[0].modo || 'normal');
+        }
+
+        // Sliders — se (re)crean si el nº de escáneres en DOM no coincide con el estado
+        // (si por algún motivo quedan 0 cuando deberían ser 3, el próximo refresh los recrea)
         const box = document.getElementById('slidersBox');
-        if(box.children.length === 0 && s.escaneres){
+        const nEscDom = box.children.length;
+        const nEscEstado = (s.escaneres || []).length;
+        if(nEscEstado > 0 && nEscDom !== nEscEstado){
+            box.innerHTML = '';
             s.escaneres.forEach(e => {
                 const div = document.createElement('div');
                 div.className = 'slider-row';

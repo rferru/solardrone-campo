@@ -118,12 +118,13 @@ class EscanerFotos:
     # Sirve para que si Windows cambia el COM, podamos redetectar por hardware_id
     _puertos_ocupados = set()
 
-    def __init__(self, escaner_id, puerto, targetWhite=80, leds=True, serial_number_hw=None):
+    def __init__(self, escaner_id, puerto, targetWhite=80, leds=True, serial_number_hw=None, modo='normal'):
         self.escaner_id = escaner_id
         self.puerto = puerto  # COM "preferido" (del config.json), puede cambiar
         self.serial_number_hw = serial_number_hw  # nº serie USB — identifica el dispositivo físico
         self.targetWhite = targetWhite
         self.leds = leds
+        self.modo = modo  # normal | sol | sol_fuerte | manual | bracketing
         self.serial = None
         self.capturando = False
         self.thread = None
@@ -214,10 +215,27 @@ class EscanerFotos:
             self.thread.join(timeout=2.0)
 
     def _solicitar_foto(self):
-        """Captura con LEDs + q90 + 0P (protocolo raw USB, necesario).
-        Sin el 0P los escáneres interpretan default 3P (Hmodem) y no envían JPEG."""
+        """Construye y envía el comando de captura según self.modo.
+        Siempre añade 0P al final (raw USB — sin él devuelve header Hmodem)."""
         luz = "1L" if self.leds else "0L"
-        comando = f"\x16M\rIMGSNP1P{luz}{self.targetWhite}W;IMGSHP6F90J0P.\r".encode()
+        tw = self.targetWhite
+        m = self.modo
+
+        if m == 'sol':
+            snp = f"IMGSNP1P0L{tw}W"
+        elif m == 'sol_fuerte':
+            snp = f"IMGSNP1P0L{tw}W90%"
+        elif m == 'manual':
+            snp = f"IMGSNP2P{luz}50E8G"
+        elif m == 'bracketing':
+            if self.contador % 2 == 0:
+                snp = f"IMGSNP1P{luz}{tw}W"
+            else:
+                snp = f"IMGSNP2P0L50E8G"
+        else:
+            snp = f"IMGSNP1P{luz}{tw}W"
+
+        comando = f"\x16M\r{snp};IMGSHP6F90J0P.\r".encode()
         self.serial.write(comando)
 
     def _bucle(self):
@@ -658,6 +676,26 @@ class InterfazCaptura:
                                     command=self.abrir_ajuste_brillo)
         self.btn_brillo.pack(side=tk.LEFT, padx=5)
 
+        # Selector de modo
+        frame_modo = tk.Frame(frame_main, bg='#f0f0f0')
+        frame_modo.pack(pady=6)
+        tk.Label(frame_modo, text="Modo:", font=('Arial', 11, 'bold'),
+                bg='#f0f0f0', fg='black').pack(side=tk.LEFT, padx=(0, 6))
+        self.var_modo = tk.StringVar(value='normal')
+        modos = [
+            ('🌤 Normal',      'normal',     '#1565C0'),
+            ('☀ Sol',          'sol',        '#F57F17'),
+            ('☀☀ Sol fuerte',  'sol_fuerte', '#E65100'),
+            ('⚡ Manual',       'manual',     '#6A1B9A'),
+            ('🔀 Bracketing',  'bracketing', '#00695C'),
+        ]
+        for texto, valor, color in modos:
+            tk.Radiobutton(frame_modo, text=texto, variable=self.var_modo, value=valor,
+                          font=('Arial', 10, 'bold'), bg='#f0f0f0', fg=color,
+                          activebackground='#f0f0f0', selectcolor='white',
+                          command=lambda v=valor: self.set_modo_desde_movil(v)
+                          ).pack(side=tk.LEFT, padx=2)
+
     def abrir_ajuste_brillo(self):
         """Ventana modal con sliders de brillo (targetWhite) por escáner.
         Los cambios se aplican en la siguiente foto que tome cada escáner."""
@@ -1023,6 +1061,7 @@ class InterfazCaptura:
                 'puerto': e.puerto,
                 'targetWhite': e.targetWhite,
                 'leds': e.leds,
+                'modo': e.modo,
                 'fotos': e.contador,
                 'conectado': bool(e.serial and e.serial.is_open),
             })
@@ -1259,20 +1298,23 @@ class InterfazCaptura:
                 return
 
     def set_modo_desde_movil(self, modo):
-        """Aplica un perfil a los 3 escáneres.
-        sol   → LEDs OFF, tW 50 (alto contraste, evita quemado bajo sol directo)
-        normal→ LEDs ON,  tW 80 (default, luz ambiente o poca luz)"""
-        if modo == 'sol':
-            tw, leds = 50, False
-        elif modo == 'normal':
-            tw, leds = 80, True
-        else:
+        """Aplica un perfil completo a los 3 escáneres. Cambia modo + tW + LEDs."""
+        presets = {
+            'normal':     {'tw': 80, 'leds': True,  'desc': 'LEDs ON, tW 80 — default (sombra/nublado)'},
+            'sol':        {'tw': 50, 'leds': False, 'desc': 'LEDs OFF, tW 50 — sol medio'},
+            'sol_fuerte': {'tw': 40, 'leds': False, 'desc': 'LEDs OFF, tW 40 + 90% — sol directo'},
+            'manual':     {'tw': 80, 'leds': True,  'desc': 'exposición 6.35 ms + gain 8 — sol extremo (evita quemar)'},
+            'bracketing': {'tw': 80, 'leds': True,  'desc': 'alterna normal+manual (HDR por ráfaga)'},
+        }
+        if modo not in presets:
             log(f"⚠ Modo desconocido: {modo}")
             return
+        p = presets[modo]
         for e in self.escaneres_fotos:
-            e.targetWhite = tw
-            e.leds = leds
-        log(f"⚙ MODO {modo.upper()} aplicado a {len(self.escaneres_fotos)} escáneres (tW={tw}, LEDs={'ON' if leds else 'OFF'})")
+            e.targetWhite = p['tw']
+            e.leds = p['leds']
+            e.modo = modo
+        log(f"⚙ MODO {modo.upper()} aplicado — {p['desc']}")
 
     def set_pyzbar_modo(self, modo):
         """Cambia el modo de pyzbar en vivo. Persiste en config.json.
