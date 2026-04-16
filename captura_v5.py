@@ -195,10 +195,13 @@ class EscanerFotos:
         elif m == 'manual':
             snp = f"IMGSNP2P{luz}{self.manual_exp}E{self.manual_gain}G"
         elif m == 'bracketing':
+            # Alterna 2 configs Photo (evita 1P↔2P que a veces confunde al escáner):
+            # par = normal con LEDs + tW alto (ver sombras)
+            # impar = LEDs OFF + tW bajo (evitar quemar con sol)
             if self.contador % 2 == 0:
                 snp = f"IMGSNP1P{luz}{tw}W"
             else:
-                snp = f"IMGSNP2P0L{self.manual_exp}E{self.manual_gain}G"
+                snp = f"IMGSNP1P0L30W90%"
         else:
             snp = f"IMGSNP1P{luz}{tw}W"
 
@@ -1227,8 +1230,8 @@ class InterfazCaptura:
             'normal':     {'tw': 80, 'leds': True,  'desc': 'LEDs ON, tW 80 — default (sombra/nublado)'},
             'sol':        {'tw': 50, 'leds': False, 'desc': 'LEDs OFF, tW 50 — sol medio'},
             'sol_fuerte': {'tw': 40, 'leds': False, 'desc': 'LEDs OFF, tW 40 + 90% — sol directo'},
-            'manual':     {'tw': 80, 'leds': True,  'desc': 'exposición 6.35 ms + gain 8 — sol extremo (evita quemar)'},
-            'bracketing': {'tw': 80, 'leds': True,  'desc': 'alterna normal+manual (HDR por ráfaga)'},
+            'manual':     {'tw': 80, 'leds': True,  'desc': 'exposición fija (exp/gain configurables desde el móvil)'},
+            'bracketing': {'tw': 80, 'leds': True,  'desc': 'alterna 2 configs Photo (tW alto + tW bajo) para HDR'},
         }
         if modo not in presets:
             log(f"⚠ Modo desconocido: {modo}")

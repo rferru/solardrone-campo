@@ -245,10 +245,18 @@ async function refrescar(){
         const s = await r.json();
 
         // CRÍTICO: botones INICIAR/PARAR al principio, no vaya a ser que una
-        // excepción más abajo los deje descolocados
+        // excepción más abajo los deje descolocados. Si no hay semáforo pendiente,
+        // aseguramos también que btnNext/btnRepeat estén ocultos.
         try {
-            document.getElementById('btnStart').style.display = s.capturando ? 'none' : 'block';
-            document.getElementById('btnStop').style.display  = s.capturando ? 'block' : 'none';
+            const haySemaforo = s.semaforo && s.semaforo.estado;
+            if(!haySemaforo){
+                semaforoShowing = false;
+                try { document.getElementById('semaforo').classList.remove('show'); } catch(_){}
+                try { document.getElementById('btnNext').style.display = 'none'; } catch(_){}
+                try { document.getElementById('btnRepeat').style.display = 'none'; } catch(_){}
+            }
+            document.getElementById('btnStart').style.display = (s.capturando || haySemaforo) ? 'none' : 'block';
+            document.getElementById('btnStop').style.display  = (s.capturando && !haySemaforo) ? 'block' : 'none';
         } catch(e) { console.error('botones:', e); }
 
         // Bloque de textos básicos (cada uno tolera a fallos de su vecino)
