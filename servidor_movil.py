@@ -72,6 +72,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 </head>
 <body>
 
+<div id="estadoEscaneres" style="display:flex;gap:6px;margin-bottom:8px">
+    <div style="flex:1;text-align:center;padding:10px;border-radius:6px;font-weight:700;font-size:14px" id="stE1">E1 ⏳</div>
+    <div style="flex:1;text-align:center;padding:10px;border-radius:6px;font-weight:700;font-size:14px" id="stE2">E2 ⏳</div>
+    <div style="flex:1;text-align:center;padding:10px;border-radius:6px;font-weight:700;font-size:14px" id="stE3">E3 ⏳</div>
+    <div style="flex:1;text-align:center;padding:10px;border-radius:6px;font-weight:700;font-size:14px" id="stGPS">GPS ⏳</div>
+</div>
+
 <div class="mesa">
     <div style="font-size:12px;color:#424242">Sesión actual</div>
     <div class="num" id="mesaNum">—</div>
@@ -339,6 +346,33 @@ async function refrescar(){
         // Destacar botón del modo actual (tomamos el modo del primer escáner)
         if(s.escaneres && s.escaneres.length){
             destacarBotonModo(s.escaneres[0].modo || 'normal');
+        }
+
+        // Barra de estado de escáneres
+        for(let i = 1; i <= 3; i++){
+            const el = document.getElementById('stE' + i);
+            const e = (s.escaneres || []).find(x => x.id === i);
+            if(e && e.conectado){
+                el.style.background = '#2E7D32'; el.style.color = '#fff';
+                el.textContent = 'E' + i + ' ✓';
+            } else if(e){
+                el.style.background = '#C62828'; el.style.color = '#fff';
+                el.textContent = 'E' + i + ' ✗';
+            } else {
+                el.style.background = '#BDBDBD'; el.style.color = '#424242';
+                el.textContent = 'E' + i + ' —';
+            }
+        }
+        const gpsSt = document.getElementById('stGPS');
+        if(s.gps_ok){
+            gpsSt.style.background = '#2E7D32'; gpsSt.style.color = '#fff';
+            gpsSt.textContent = 'GPS ✓';
+        } else if(s.gps_connected){
+            gpsSt.style.background = '#F57F17'; gpsSt.style.color = '#fff';
+            gpsSt.textContent = 'GPS ⏳';
+        } else {
+            gpsSt.style.background = '#BDBDBD'; gpsSt.style.color = '#424242';
+            gpsSt.textContent = 'GPS —';
         }
 
         // Sliders — se (re)crean si el nº de escáneres en DOM no coincide con el estado

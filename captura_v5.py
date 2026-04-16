@@ -1255,13 +1255,20 @@ class InterfazCaptura:
                 log(f"⚠ decodificar error: {e}")
 
     def iniciar_captura_desde_movil(self):
+        log("📲 iniciar_captura solicitado desde móvil")
         self.root.after(0, self._iniciar_desde_movil)
 
     def _iniciar_desde_movil(self):
-        if not self.capturando:
-            self.iniciar_captura()
+        if self.capturando:
+            log("⚠ Ya estaba capturando, ignoro petición de inicio")
+            return
+        if not self.escaneres_fotos:
+            log("⚠ NO se puede iniciar: 0 escáneres conectados")
+            return
+        self.iniciar_captura()
 
     def cerrar_captura_desde_movil(self):
+        log("📲 cerrar_captura solicitado desde móvil")
         self.root.after(0, self._cerrar_desde_movil)
 
     def _cerrar_desde_movil(self):
