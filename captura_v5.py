@@ -583,7 +583,7 @@ class InterfazCaptura:
         frame_col.pack(pady=15, padx=50, fill=tk.X)
         tk.Label(frame_col, text="COLUMNA", font=('Arial', 12),
                 bg='#3498db', fg='white').pack(pady=3)
-        self.label_columna = tk.Label(frame_col, text=f"0 / {COLUMNAS_TOTAL}",
+        self.label_columna = tk.Label(frame_col, text="0 códigos",
                                       font=('Arial', 44, 'bold'), bg='#3498db', fg='white')
         self.label_columna.pack(pady=8)
 
@@ -774,13 +774,13 @@ class InterfazCaptura:
             return
 
         self.codigos_unicos.add(codigo)
-        self.columna_actual += 1
+        self.columna_actual += 1  # ahora es contador acumulativo de códigos en la sesión
         ts = datetime.now()
 
         fila = {
             'timestamp': ts.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
             'codigo': codigo,
-            'columna': self.columna_actual,
+            'columna': self.columna_actual,  # contador acumulativo de la sesión
             'gps_lat': self.gps.lat if self.gps else '',
             'gps_lon': self.gps.lon if self.gps else '',
             'gps_alt': self.gps.alt if self.gps else '',
@@ -791,16 +791,12 @@ class InterfazCaptura:
 
         # Escribir inmediatamente (protege ante crash)
         self._escribir_csv(fila)
-        log(f"✓ Col {self.columna_actual}: {codigo} (fix={fila['gps_fix']}, sat={fila['gps_sat']})")
+        log(f"✓ Código #{self.columna_actual}: {codigo} (fix={fila['gps_fix']}, sat={fila['gps_sat']})")
 
-        # Beeps
+        # Beep simple para cada código — NO hay auto-cierre, las "mesas" se
+        # separan en post-proceso. El operario pulsa PARAR cuando quiera.
         if self.columna_actual == 1:
             threading.Thread(target=lambda: beep(2000, 200), daemon=True).start()
-        elif self.columna_actual == COLUMNAS_TOTAL:
-            threading.Thread(target=self._beep_doble, daemon=True).start()
-            # AUTO-CIERRE de mesa: detiene captura, calcula semáforo,
-            # prepara siguiente mesa. Si llega otro código, se abre sola.
-            self.root.after(500, self._auto_cerrar_mesa)
         else:
             threading.Thread(target=lambda: beep(1000, 150), daemon=True).start()
 
@@ -933,7 +929,7 @@ class InterfazCaptura:
             else:
                 self.label_mesa.config(text=f"Mesa: {self.mesa_numero:03d} (preparada)")
 
-            self.label_columna.config(text=f"{self.columna_actual} / {COLUMNAS_TOTAL}")
+            self.label_columna.config(text=f"{self.columna_actual} códigos")
 
             if self.gps and self.gps.conectado and self.gps.lat is not None:
                 txt = f"GPS: {self.gps.lat:.6f}, {self.gps.lon:.6f} ({self.gps.satelites} sat, HDOP={self.gps.hdop})"
@@ -1022,7 +1018,7 @@ class InterfazCaptura:
             'mesa_numero': self.mesa_numero,
             'mesa_nombre': self.mesa_nombre,
             'columna_actual': self.columna_actual,
-            'columnas_total': COLUMNAS_TOTAL,
+            'columnas_total': 0,  # deprecado — ya no hay meta de 14
             'fotos': total_fotos,
             'detecciones_zbar': sum(self.detecciones_zbar.values()) if PYZBAR_DISPONIBLE else None,
             'escaneres': escaneres_info,
@@ -1269,7 +1265,7 @@ class InterfazCaptura:
         Usa muestreo simple sin PIL para no añadir dependencias."""
         # Comando directo al escáner (sin pasar por el bucle)
         luz = "1L" if leds else "0L"
-        cmd = f"\x16M\rIMGSNP1P{luz}{target}W;IMGSHP6F90J.\r".encode()
+        cmd = f"\x16M\rIMGSNP1P{luz}{target}W;IMGSHP6F90J0P.\r".encode()
         if not (escaner.serial and escaner.serial.is_open):
             escaner.reconectar()
         try:
@@ -1314,17 +1310,10 @@ class InterfazCaptura:
         problemas = []
         estado = 'verde'
 
-        if n_codigos < 10:
-            estado = 'rojo'; problemas.append(f"solo {n_codigos} códigos")
-        elif n_codigos < COLUMNAS_TOTAL:
-            if estado == 'verde': estado = 'ambar'
-            problemas.append(f"{n_codigos}/{COLUMNAS_TOTAL} códigos")
-
-        if fotos_min < 10:
-            estado = 'rojo'; problemas.append(f"escáner con solo {fotos_min} fotos")
-        elif fotos_min < 30:
-            if estado == 'verde': estado = 'ambar'
-            problemas.append(f"escáner con {fotos_min} fotos (pocas)")
+        # Ya NO se distingue por mesa — el operario inicia/para cuando quiere.
+        # El semáforo ahora solo avisa de problemas de hardware (GPS, escáner desconectado).
+        # Los criterios de "suficientes códigos/fotos" desaparecen porque la sesión
+        # puede cubrir 1 mesa, 3 mesas o media — las mesas se separan en post-proceso.
 
         # GPS: si está marcado como requerido, su ausencia/pérdida es bloqueante
         gps_requerido = self.config.get('gps_requerido', True)
