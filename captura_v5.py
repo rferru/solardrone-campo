@@ -32,52 +32,15 @@ try:
 except ImportError:
     BEEP_DISPONIBLE = False
 
-# PIL para miniaturas al móvil (crítico — si falta, seguimos sin miniaturas)
-try:
-    from PIL import Image as PIL_Image, ImageEnhance, ImageFilter
-    PIL_DISPONIBLE = True
-except Exception:
-    PIL_DISPONIBLE = False
-
-# pyzbar opcional. Puede fallar con:
-#   ImportError → módulo no instalado
-#   OSError     → Windows sin libzbar-64.dll (se detecta al usarlo, no al importarlo)
-# Hacemos prueba real decodificando una imagen dummy para detectar ambos casos al arranque.
+# Detección local (pyzbar, zxing, PIL) ELIMINADA en esta versión.
+# Las fotos se guardan en disco y se analizan en post-proceso.
+# Esto evita crashes por incompatibilidades de libs compiladas en Mac/Python nuevo.
 PYZBAR_DISPONIBLE = False
-ZBAR_ALL = []
-_zbar_error = None
-try:
-    from pyzbar.pyzbar import decode as zbar_decode
-    from pyzbar.pyzbar import ZBarSymbol
-    if PIL_DISPONIBLE:
-        # Prueba real — fuerza la carga de libzbar; si falla aquí, sabemos que no sirve
-        _test_img = PIL_Image.new('L', (50, 50), 255)
-        zbar_decode(_test_img)  # si libzbar no carga, lanza OSError aquí
-        PYZBAR_DISPONIBLE = True
-        ZBAR_ALL = [
-            ZBarSymbol.CODE128, ZBarSymbol.CODE39, ZBarSymbol.CODE93,
-            ZBarSymbol.EAN13, ZBarSymbol.EAN8, ZBarSymbol.UPCA, ZBarSymbol.UPCE,
-            ZBarSymbol.I25, ZBarSymbol.DATABAR, ZBarSymbol.DATABAR_EXP,
-            ZBarSymbol.CODABAR, ZBarSymbol.QRCODE, ZBarSymbol.PDF417,
-        ]
-except ImportError as e:
-    _zbar_error = f"no instalado ({e})"
-except Exception as e:
-    _zbar_error = f"instalado pero no carga la DLL ({e})"
-
-# zxing-cpp opcional — mismo tratamiento defensivo
 ZXING_DISPONIBLE = False
-_zxing_error = None
-try:
-    import zxingcpp
-    if PIL_DISPONIBLE:
-        _test_img = PIL_Image.new('L', (50, 50), 255)
-        zxingcpp.read_barcodes(_test_img)  # fuerza carga
-        ZXING_DISPONIBLE = True
-except ImportError as e:
-    _zxing_error = f"no instalado ({e})"
-except Exception as e:
-    _zxing_error = f"instalado pero falla ({e})"
+PIL_DISPONIBLE = False
+_zbar_error = "deshabilitado"
+_zxing_error = "deshabilitado"
+ZBAR_ALL = []
 
 import io as _io
 import queue as _queue
@@ -1182,83 +1145,12 @@ class InterfazCaptura:
                 pass
 
     def _decodificar_cascada(self, img_l):
-        """Intenta varias estrategias de decodificación en orden de coste creciente.
-        Devuelve lista de (codigo, tipo, metodo). Para en la primera que lea."""
-        resultados = []
-
-        img_big = None
-
-        # 1) zbar en imagen original (rápido, ~30-50ms) — TODOS los symbologies
-        if PYZBAR_DISPONIBLE:
-            try:
-                for r in zbar_decode(img_l, symbols=ZBAR_ALL):
-                    resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar'))
-                if resultados:
-                    return resultados
-            except Exception:
-                pass
-
-            # 2) zbar en imagen 2x con sharpen + contraste (para códigos pequeños)
-            try:
-                w, h = img_l.size
-                img_big = img_l.resize((w * 2, h * 2), PIL_Image.LANCZOS)
-                img_big = ImageEnhance.Contrast(img_big).enhance(1.4)
-                img_big = img_big.filter(ImageFilter.SHARPEN)
-                for r in zbar_decode(img_big, symbols=ZBAR_ALL):
-                    resultados.append((r.data.decode('utf-8', errors='ignore'), r.type, 'zbar+2x'))
-                if resultados:
-                    return resultados
-            except Exception:
-                pass
-
-        # 3) zxing-cpp (si está instalado — a veces lee códigos que zbar no)
-        if ZXING_DISPONIBLE:
-            try:
-                for r in zxingcpp.read_barcodes(img_l):
-                    resultados.append((r.text, str(r.format), 'zxing'))
-                if resultados:
-                    return resultados
-                # 4) zxing en 2x
-                for r in zxingcpp.read_barcodes(img_big):
-                    resultados.append((r.text, str(r.format), 'zxing+2x'))
-                if resultados:
-                    return resultados
-            except Exception:
-                pass
-
-        return resultados
+        """Detección local eliminada — análisis de códigos se hace en post-proceso."""
+        return []
 
     def _pyzbar_worker(self):
-        """Procesa fotos en background. Cascada: zbar → zbar 2x → zxing → zxing 2x."""
-        while True:
-            try:
-                jpeg = self.pyzbar_queue.get(timeout=1)
-            except _queue.Empty:
-                continue
-            try:
-                img = PIL_Image.open(_io.BytesIO(jpeg)).convert('L')
-                resultados = self._decodificar_cascada(img)
-                for codigo, tipo, metodo in resultados:
-                    # Dedup: si ya lo leímos en esta mesa, solo loguear como repetido
-                    if codigo in self.codigos_zbar_unicos:
-                        continue  # repetido, no cuenta de nuevo
-                    self.codigos_zbar_unicos.add(codigo)
-                    log(f"🔍 {metodo} leyó código nuevo: {codigo} ({tipo})")
-                    if self.carpeta_mesa:
-                        ruta = os.path.join(self.carpeta_mesa, "detecciones_zbar.csv")
-                        nuevo = not os.path.exists(ruta)
-                        try:
-                            with open(ruta, 'a', encoding='utf-8') as f:
-                                if nuevo:
-                                    f.write("timestamp,codigo,tipo,metodo\n")
-                                ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-                                f.write(f"{ts},{codigo},{tipo},{metodo}\n")
-                        except Exception as ex:
-                            log(f"  ⚠ No se pudo guardar deteccion: {ex}")
-                    # Contador = códigos únicos (igual que HID en columnas)
-                    self.detecciones_zbar[1] = len(self.codigos_zbar_unicos)
-            except Exception as e:
-                log(f"⚠ decodificar error: {e}")
+        """Detección local eliminada — las fotos quedan en disco para análisis posterior."""
+        return
 
     def iniciar_captura_desde_movil(self):
         log("📲 iniciar_captura solicitado desde móvil")
