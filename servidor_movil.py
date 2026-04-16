@@ -185,6 +185,8 @@ const MODO_DESC = {
 };
 
 async function aplicarModo(modo){
+    // Destacar botón inmediatamente (no esperar al refresh)
+    destacarBotonModo(modo);
     await fetch('/api/set_modo/' + modo, {method:'POST'});
     toast(MODO_DESC[modo] || modo, 2500);
     // Forzar rerender de sliders
