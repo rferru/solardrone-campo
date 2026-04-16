@@ -72,18 +72,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 </head>
 <body>
 
-<div class="header">
-    <h1 id="hTitulo">Solar Drone v5</h1>
-</div>
-
 <div class="mesa">
-    <div style="font-size:12px;color:#424242">Mesa actual</div>
+    <div style="font-size:12px;color:#424242">Sesión actual</div>
     <div class="num" id="mesaNum">—</div>
 </div>
 
 <div class="col-box">
-    <div class="titulo">COLUMNA</div>
-    <div class="numero" id="columna">0 / 14</div>
+    <div class="titulo">CÓDIGOS</div>
+    <div class="numero" id="columna">0</div>
 </div>
 
 <div class="gps" id="gpsBox">GPS: —</div>
@@ -105,27 +101,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 
 <div class="sem" id="semaforo">—</div>
 
-<div id="msgInicio" style="background:#E8F5E9;color:#2E7D32;padding:14px;border-radius:8px;font-weight:700;text-align:center;margin:8px 0">
-    📖 Dispara un código con el HID y la mesa empieza sola
-</div>
-
-<details style="margin:6px 0">
-<summary style="padding:10px;background:#F5F5F5;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">🧪 MODO TEST — Disparar código manual (sin escáner HID)</summary>
-<div style="padding:10px;background:#FFF9C4;border-radius:6px;margin-top:6px">
-    <div style="font-size:12px;color:#424242;margin-bottom:6px">Escribe un código y pulsa ENVIAR. Cada uno cuenta como una columna.</div>
-    <div style="display:flex;gap:6px">
-        <input type="text" id="codigoTest" placeholder="LRPI04108..." style="flex:1;padding:10px;font-size:15px;border:2px solid #F57F17;border-radius:6px">
-        <button onclick="enviarCodigoTest()" style="padding:10px 18px;background:#F57F17;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">ENVIAR</button>
-    </div>
-    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-        <button onclick="autoTest()" style="padding:8px 14px;background:#1565C0;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">⚡ Disparar 14 códigos test</button>
-    </div>
-</div>
-</details>
-<button class="btn btn-start" id="btnStart" onclick="cmd('/api/iniciar_mesa')" style="display:none">▶ INICIAR MESA (manual)</button>
-<button class="btn btn-stop" id="btnStop" onclick="cmd('/api/cerrar_mesa')" style="display:none">■ PARAR (cortar antes de los 14)</button>
-<button class="btn btn-next" id="btnNext" onclick="cerrarSemaforo(true)" style="display:none">✓ ACEPTAR (siguiente mesa)</button>
-<button class="btn btn-repeat" id="btnRepeat" onclick="cerrarSemaforo(false)" style="display:none">↻ REPETIR MESA</button>
+<button class="btn btn-start" id="btnStart" onclick="cmd('/api/iniciar_mesa')">▶ INICIAR CAPTURA</button>
+<button class="btn btn-stop" id="btnStop" onclick="cmd('/api/cerrar_mesa')" style="display:none">■ PARAR CAPTURA</button>
+<div id="toast" style="display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2E7D32;color:#fff;padding:10px 18px;border-radius:6px;font-weight:700;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>
 
 <details style="margin-top:14px">
 <summary style="padding:10px;background:#F5F5F5;border-radius:8px;font-weight:700;cursor:pointer">⚙ Ajustes (cámaras)</summary>
@@ -146,7 +124,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 </div>
 </details>
 
-<div class="foto-preview" id="fotoBox">Última foto aparecerá aquí</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:8px">
+    <div style="position:relative"><div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E1</div><div class="foto-preview" id="fotoBox1">—</div></div>
+    <div style="position:relative"><div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E2</div><div class="foto-preview" id="fotoBox2">—</div></div>
+    <div style="position:relative"><div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E3</div><div class="foto-preview" id="fotoBox3">—</div></div>
+</div>
 
 <audio id="aBeep" preload="auto" src="/audio/beep"></audio>
 <audio id="aDouble" preload="auto" src="/audio/double"></audio>
@@ -167,33 +149,20 @@ async function cmd(url, body){
     setTimeout(refrescar, 200);
 }
 
+function toast(msg, ms){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', ms || 1800);
+}
+
+async function aplicarBrillo(escId, valor){
+    await fetch('/api/set_brillo/' + escId + '/' + valor, {method:'POST'});
+    toast('Brillo E' + escId + ' → ' + valor);
+}
+
 function setPyzbarModo(modo){
     cmd('/api/set_pyzbar_modo', {modo});
-}
-
-function enviarCodigoTest(){
-    const inp = document.getElementById('codigoTest');
-    const codigo = inp.value.trim();
-    if(!codigo) return;
-    cmd('/api/simular_codigo', {codigo});
-    inp.value = '';
-    inp.focus();
-}
-
-// Permitir Enter para enviar
-document.addEventListener('DOMContentLoaded', () => {
-    const inp = document.getElementById('codigoTest');
-    if(inp){inp.addEventListener('keypress', e => { if(e.key === 'Enter') enviarCodigoTest(); });}
-});
-
-async function autoTest(){
-    // Dispara 14 códigos seguidos para probar flujo completo
-    for(let i = 1; i <= 14; i++){
-        await fetch('/api/simular_codigo', {method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({codigo: 'TEST' + Date.now().toString().slice(-6) + '_' + i})});
-        await new Promise(r => setTimeout(r, 600));
-    }
-    setTimeout(refrescar, 200);
 }
 
 function cerrarSemaforo(aceptar){
@@ -278,11 +247,9 @@ async function refrescar(){
         }
         lastDescon = descon;
 
-        // Botones / mensaje de inicio
-        const msgInicio = document.getElementById('msgInicio');
-        msgInicio.style.display = (!s.capturando && !semaforoShowing && !s.semaforo) ? 'block' : 'none';
-        document.getElementById('btnStart').style.display = 'none';  // auto-inicio por HID, no manual
-        document.getElementById('btnStop').style.display = s.capturando ? 'block' : 'none';
+        // Botones INICIAR/PARAR desde el móvil (manual, el HID también los dispara)
+        document.getElementById('btnStart').style.display = s.capturando ? 'none' : 'block';
+        document.getElementById('btnStop').style.display  = s.capturando ? 'block' : 'none';
 
         // Sonido al llegar código nuevo
         if(s.columna_actual > lastCol){
@@ -332,7 +299,7 @@ async function refrescar(){
                 div.innerHTML = '<label>E'+e.id+':</label>' +
                     '<input type="range" min="20" max="200" value="'+e.targetWhite+'" id="sl_'+e.id+'" ' +
                     'oninput="document.getElementById(\\'val_\\' + '+e.id+').textContent=this.value" ' +
-                    'onchange="cmd(\\'/api/set_brillo/\\' + '+e.id+' + \\'/\\' + this.value)">' +
+                    'onchange="aplicarBrillo('+e.id+', this.value)">' +
                     '<span class="val" id="val_'+e.id+'">'+e.targetWhite+'</span>';
                 box.appendChild(div);
             });
@@ -347,17 +314,18 @@ async function refrescar(){
 refrescar();
 setInterval(refrescar, 2000);
 
-// Miniatura cada 5s
-setInterval(() => {
+// Miniatura por escáner cada 5s
+function cargarMini(id){
     const img = document.createElement('img');
-    img.src = '/api/ultima_foto?t=' + Date.now();
+    img.src = '/api/ultima_foto?e=' + id + '&t=' + Date.now();
     img.onload = () => {
-        const box = document.getElementById('fotoBox');
+        const box = document.getElementById('fotoBox' + id);
         box.innerHTML = '';
         box.appendChild(img);
     };
     img.onerror = () => {};
-}, 5000);
+}
+setInterval(() => { cargarMini(1); cargarMini(2); cargarMini(3); }, 5000);
 </script>
 </body>
 </html>
@@ -504,7 +472,16 @@ def _hacer_handler(app):
                 elif self.path == '/api/estado':
                     self._json(app.estado_para_movil())
                 elif self.path.startswith('/api/ultima_foto'):
-                    data = app.ultima_foto_miniatura()
+                    # Soporta ?e=N para seleccionar escáner específico
+                    esc_id = None
+                    if '?' in self.path:
+                        qs = self.path.split('?', 1)[1]
+                        from urllib.parse import parse_qs
+                        params = parse_qs(qs)
+                        if 'e' in params:
+                            try: esc_id = int(params['e'][0])
+                            except Exception: esc_id = None
+                    data = app.ultima_foto_miniatura(esc_id)
                     if data:
                         self.send_response(200)
                         self.send_header('Content-Type', 'image/jpeg')

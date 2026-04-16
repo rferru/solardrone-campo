@@ -301,7 +301,7 @@ class EscanerFotos:
                     # Notificar al app para miniatura móvil (callback opcional)
                     cb = getattr(self, 'on_foto_guardada', None)
                     if cb:
-                        try: cb(jpeg)
+                        try: cb(jpeg, self.escaner_id)
                         except Exception: pass
                     ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
                     self.contador += 1
@@ -507,8 +507,9 @@ class InterfazCaptura:
         # Semáforo pendiente (resultado al cerrar mesa, esperando aceptación del operario)
         self.semaforo_pendiente = None  # dict con {estado, motivo, ...} o None
 
-        # Para miniatura móvil: guardar última foto bytes en memoria
-        self._ultima_foto_bytes = None
+        # Para miniatura móvil: última foto por escáner {id: bytes}
+        self._ultima_foto_bytes = None  # compat: última foto cualquiera
+        self._ultima_foto_por_esc = {}  # {escaner_id: bytes}
         self._ultima_foto_lock = threading.Lock()
 
         # Detección pyzbar async — modo configurable en vivo desde móvil
@@ -1056,17 +1057,22 @@ class InterfazCaptura:
             **gps_info,
         }
 
-    def ultima_foto_miniatura(self):
-        """Devuelve bytes de la última foto capturada (para preview móvil)"""
+    def ultima_foto_miniatura(self, esc_id=None):
+        """Devuelve bytes de la última foto capturada (para preview móvil).
+        Si esc_id = 1/2/3, devuelve la última de ese escáner. Si None, cualquiera."""
         with self._ultima_foto_lock:
+            if esc_id is not None:
+                return self._ultima_foto_por_esc.get(esc_id)
             return self._ultima_foto_bytes
 
-    def _guardar_ultima_foto_miniatura(self, jpeg_bytes):
+    def _guardar_ultima_foto_miniatura(self, jpeg_bytes, esc_id=None):
         """Llamado por EscanerFotos cada vez que guarda una foto.
-        - Guarda última para preview móvil
+        - Guarda última para preview móvil (por escáner + global)
         - Encola según self.pyzbar_modo"""
         with self._ultima_foto_lock:
             self._ultima_foto_bytes = jpeg_bytes
+            if esc_id is not None:
+                self._ultima_foto_por_esc[esc_id] = jpeg_bytes
         if not (PYZBAR_DISPONIBLE and self.capturando):
             return
 
