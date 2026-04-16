@@ -161,6 +161,11 @@ async function aplicarBrillo(escId, valor){
     toast('Brillo E' + escId + ' → ' + valor);
 }
 
+async function aplicarLeds(escId, encendido){
+    await fetch('/api/set_leds/' + escId + '/' + (encendido ? '1' : '0'), {method:'POST'});
+    toast('LEDs E' + escId + ' → ' + (encendido ? 'ON' : 'OFF'));
+}
+
 function setPyzbarModo(modo){
     cmd('/api/set_pyzbar_modo', {modo});
 }
@@ -300,7 +305,11 @@ async function refrescar(){
                     '<input type="range" min="20" max="200" value="'+e.targetWhite+'" id="sl_'+e.id+'" ' +
                     'oninput="document.getElementById(\\'val_\\' + '+e.id+').textContent=this.value" ' +
                     'onchange="aplicarBrillo('+e.id+', this.value)">' +
-                    '<span class="val" id="val_'+e.id+'">'+e.targetWhite+'</span>';
+                    '<span class="val" id="val_'+e.id+'">'+e.targetWhite+'</span>' +
+                    '<label style="margin-left:10px;display:flex;align-items:center;gap:4px;cursor:pointer">' +
+                    '<input type="checkbox" id="led_'+e.id+'" '+(e.leds?'checked':'')+' ' +
+                    'onchange="aplicarLeds('+e.id+', this.checked)" style="width:20px;height:20px">' +
+                    '<span style="font-size:12px;font-weight:700">LED</span></label>';
                 box.appendChild(div);
             });
         }
@@ -529,6 +538,11 @@ def _hacer_handler(app):
                     partes = self.path.split('/')
                     esc_id = int(partes[3]); valor = int(partes[4])
                     app.set_brillo_desde_movil(esc_id, valor)
+                    self._ok()
+                elif self.path.startswith('/api/set_leds/'):
+                    partes = self.path.split('/')
+                    esc_id = int(partes[3]); encendido = partes[4] == '1'
+                    app.set_leds_desde_movil(esc_id, encendido)
                     self._ok()
                 elif self.path == '/api/auto_calibrar':
                     app.auto_calibrar_desde_movil()

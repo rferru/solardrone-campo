@@ -1219,6 +1219,13 @@ class InterfazCaptura:
                 log(f"⚙ E{esc_id} brillo → {e.targetWhite} (desde móvil)")
                 return
 
+    def set_leds_desde_movil(self, esc_id, encendido):
+        for e in self.escaneres_fotos:
+            if e.escaner_id == esc_id:
+                e.leds = bool(encendido)
+                log(f"⚙ E{esc_id} LEDs → {'ON' if e.leds else 'OFF'} (desde móvil)")
+                return
+
     def set_pyzbar_modo(self, modo):
         """Cambia el modo de pyzbar en vivo. Persiste en config.json.
         Modos: off | todas | cada_2 | cada_3 | solo_al_cerrar"""
