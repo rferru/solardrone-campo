@@ -1027,6 +1027,7 @@ class InterfazCaptura:
         escaneres_info = []
         for e in self.escaneres_fotos:
             total_fotos[e.escaner_id - 1] = e.contador
+            meta_ultima = self.ultima_foto_meta(e.escaner_id)
             escaneres_info.append({
                 'id': e.escaner_id,
                 'puerto': e.puerto,
@@ -1037,6 +1038,7 @@ class InterfazCaptura:
                 'manual_gain': e.manual_gain,
                 'fotos': e.contador,
                 'conectado': bool(e.serial and e.serial.is_open),
+                'ultima_foto_meta': meta_ultima,  # config de la última foto que se ve en miniatura
             })
 
         gps_info = {}
@@ -1084,6 +1086,12 @@ class InterfazCaptura:
                 return self._ultima_foto_por_esc.get(esc_id)
             return self._ultima_foto_bytes
 
+    def ultima_foto_meta(self, esc_id):
+        """Devuelve dict con la config usada en la última foto de ese escáner"""
+        with self._ultima_foto_lock:
+            meta = getattr(self, '_ultima_foto_meta', {})
+            return meta.get(esc_id)
+
     def _guardar_metadata_foto(self, nombre, esc_id, targetWhite, leds, size):
         """Añade fila a capturas/<mesa>/fotos_metadata.csv con config + GPS de cada foto.
         Permite analizar post-captura qué configs dieron mejor detección."""
@@ -1112,11 +1120,26 @@ class InterfazCaptura:
     def _guardar_ultima_foto_miniatura(self, jpeg_bytes, esc_id=None):
         """Llamado por EscanerFotos cada vez que guarda una foto.
         - Guarda última para preview móvil (por escáner + global)
-        - Encola según self.pyzbar_modo"""
+        - También guarda la config usada en esa foto (para mostrar en el móvil)"""
         with self._ultima_foto_lock:
             self._ultima_foto_bytes = jpeg_bytes
             if esc_id is not None:
                 self._ultima_foto_por_esc[esc_id] = jpeg_bytes
+                # Capturar config del escáner AHORA (la que usó para esta foto)
+                for e in self.escaneres_fotos:
+                    if e.escaner_id == esc_id:
+                        if not hasattr(self, '_ultima_foto_meta'):
+                            self._ultima_foto_meta = {}
+                        self._ultima_foto_meta[esc_id] = {
+                            'modo': e.modo,
+                            'tW': e.targetWhite,
+                            'leds': e.leds,
+                            'exp': e.manual_exp,
+                            'gain': e.manual_gain,
+                            'size_kb': round(len(jpeg_bytes) / 1024, 1),
+                            'ts': datetime.now().strftime('%H:%M:%S'),
+                        }
+                        break
         if not (PYZBAR_DISPONIBLE and self.capturando):
             return
 

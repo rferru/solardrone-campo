@@ -142,9 +142,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff;col
 </details>
 
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:8px">
-    <div style="position:relative"><div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E1</div><div class="foto-preview" id="fotoBox1">—</div></div>
-    <div style="position:relative"><div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E2</div><div class="foto-preview" id="fotoBox2">—</div></div>
-    <div style="position:relative"><div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E3</div><div class="foto-preview" id="fotoBox3">—</div></div>
+    <div style="position:relative">
+        <div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E1</div>
+        <div class="foto-preview" id="fotoBox1">—</div>
+        <div id="metaFoto1" style="font-size:9px;font-weight:700;color:#424242;padding:3px;background:#F5F5F5;text-align:center;line-height:1.2">—</div>
+    </div>
+    <div style="position:relative">
+        <div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E2</div>
+        <div class="foto-preview" id="fotoBox2">—</div>
+        <div id="metaFoto2" style="font-size:9px;font-weight:700;color:#424242;padding:3px;background:#F5F5F5;text-align:center;line-height:1.2">—</div>
+    </div>
+    <div style="position:relative">
+        <div style="position:absolute;top:3px;left:6px;background:rgba(0,0,0,0.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;z-index:1">E3</div>
+        <div class="foto-preview" id="fotoBox3">—</div>
+        <div id="metaFoto3" style="font-size:9px;font-weight:700;color:#424242;padding:3px;background:#F5F5F5;text-align:center;line-height:1.2">—</div>
+    </div>
 </div>
 
 <audio id="aBeep" preload="auto" src="/audio/beep"></audio>
@@ -375,7 +387,7 @@ async function refrescar(){
             }
         } catch(e) { console.error('destacar modo:', e); }
 
-        // Barra de estado de escáneres
+        // Barra de estado de escáneres + meta de última foto
         try {
         for(let i = 1; i <= 3; i++){
             const el = document.getElementById('stE' + i);
@@ -389,6 +401,17 @@ async function refrescar(){
             } else {
                 el.style.background = '#BDBDBD'; el.style.color = '#424242';
                 el.textContent = 'E' + i + ' —';
+            }
+            // Metadata de última foto bajo la miniatura
+            const metaEl = document.getElementById('metaFoto' + i);
+            if(metaEl){
+                if(e && e.ultima_foto_meta){
+                    const m = e.ultima_foto_meta;
+                    metaEl.innerHTML = m.modo + ' · tW' + m.tW + ' · LED' + (m.leds?'ON':'OFF') +
+                                       '<br>' + m.size_kb + 'KB · ' + m.ts;
+                } else {
+                    metaEl.textContent = '—';
+                }
             }
         }
         const gpsSt = document.getElementById('stGPS');
