@@ -509,7 +509,8 @@ class InterfazCaptura:
 
         # Detección pyzbar async — modo configurable en vivo desde móvil
         # Modos: "off" | "todas" | "cada_2" | "cada_3" | "solo_al_cerrar"
-        self.pyzbar_modo = self.config.get('pyzbar_modo', 'cada_3')
+        # Default: analizar TODAS las fotos (CPU aguanta sobradamente: ~30 ms por foto 844x640)
+        self.pyzbar_modo = self.config.get('pyzbar_modo', 'todas')
         self.pyzbar_queue = _queue.Queue(maxsize=100)
         self.pyzbar_contador = 0
         self.pyzbar_descartadas = 0
@@ -517,11 +518,14 @@ class InterfazCaptura:
         self.detecciones_zbar = {1: 0, 2: 0, 3: 0}
         self.codigos_zbar_unicos = set()  # dedup: códigos únicos leídos en la mesa
         if PYZBAR_DISPONIBLE or ZXING_DISPONIBLE:
-            threading.Thread(target=self._pyzbar_worker, daemon=True).start()
+            # 4 workers paralelos: pyzbar libera GIL → escalado real de CPU
+            N_WORKERS = 4
+            for _w in range(N_WORKERS):
+                threading.Thread(target=self._pyzbar_worker, daemon=True).start()
             libs = []
             if PYZBAR_DISPONIBLE: libs.append("pyzbar")
             if ZXING_DISPONIBLE:  libs.append("zxing-cpp")
-            log(f"✓ Detección local activa — librerías: {'+'.join(libs)}")
+            log(f"✓ Detección local activa ({N_WORKERS} workers) — librerías: {'+'.join(libs)}")
         else:
             log(f"⚠ Sin detección local (captura funciona igual)")
             if _zbar_error:  log(f"   pyzbar: {_zbar_error}")
