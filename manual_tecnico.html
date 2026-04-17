@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<title>Solar Drone — Manual del técnico</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fff;color:#1a1a1a;line-height:1.6;font-size:16px}
+
+/* Header pegajoso */
+.top{position:sticky;top:0;background:#1565C0;color:#fff;padding:14px 16px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.15)}
+.top h1{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px}
+.top .sub{font-size:12px;opacity:0.9;margin-top:2px}
+
+/* Navegación horizontal rápida */
+.nav{background:#F5F5F5;border-bottom:1px solid #ddd;overflow-x:auto;white-space:nowrap;padding:8px 4px;position:sticky;top:58px;z-index:99}
+.nav a{display:inline-block;padding:6px 12px;background:#fff;color:#1565C0;border-radius:20px;font-size:13px;font-weight:700;text-decoration:none;margin:0 3px;border:1px solid #ddd}
+.nav a:active{background:#1565C0;color:#fff}
+
+/* Contenido */
+.container{max-width:760px;margin:0 auto;padding:20px 16px 80px}
+
+/* Secciones */
+section{margin-bottom:36px;border-left:4px solid #1565C0;padding-left:14px;padding-top:4px}
+section h2{font-size:22px;color:#1565C0;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+section h2 .n{background:#1565C0;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
+
+/* Paso dentro de sección */
+.paso{background:#F9F9F9;border-left:3px solid #2E7D32;padding:12px 14px;border-radius:6px;margin:10px 0}
+.paso .titulo{font-weight:800;color:#2E7D32;font-size:15px;margin-bottom:4px}
+
+/* Bullets grandes */
+ol,ul{padding-left:26px;margin:8px 0}
+li{margin:6px 0}
+
+/* Botones fake tipo app */
+.btn-demo{display:inline-block;background:#1565C0;color:#fff;padding:6px 14px;border-radius:6px;font-weight:700;font-size:14px;margin:2px}
+.btn-demo.verde{background:#2E7D32}
+.btn-demo.rojo{background:#C62828}
+.btn-demo.naranja{background:#F57F17}
+
+/* Alertas */
+.alerta{padding:12px 14px;border-radius:6px;margin:10px 0;font-size:14px}
+.alerta.rojo{background:#FFEBEE;border-left:4px solid #C62828;color:#8E0000}
+.alerta.amarillo{background:#FFF8E1;border-left:4px solid #F57F17;color:#6A3B00}
+.alerta.azul{background:#E3F2FD;border-left:4px solid #1565C0;color:#0D47A1}
+.alerta.verde{background:#E8F5E9;border-left:4px solid #2E7D32;color:#1B5E20}
+.alerta strong{font-weight:800}
+.alerta .ico{font-size:20px;margin-right:6px}
+
+/* Código */
+code,pre{background:#263238;color:#A5D6A7;padding:2px 6px;border-radius:4px;font-family:"SF Mono",Consolas,monospace;font-size:13px}
+pre{display:block;padding:10px 14px;overflow-x:auto;white-space:pre-wrap}
+.copiar{background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;margin-left:6px;font-weight:700}
+.copiar:active{background:#2E7D32;color:#fff}
+
+/* Fotos conceptuales / emoji grande */
+.icono-grande{font-size:48px;text-align:center;display:block;margin:10px 0}
+
+/* Mesa */
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+th,td{border:1px solid #ddd;padding:8px 10px;text-align:left}
+th{background:#1565C0;color:#fff;font-weight:800}
+
+/* Troubleshooting */
+.faq{background:#F5F5F5;border-radius:8px;padding:10px 14px;margin:8px 0}
+.faq summary{cursor:pointer;font-weight:800;padding:4px 0;list-style:none;outline:none}
+.faq summary::before{content:"▸ ";color:#1565C0;display:inline-block;transition:transform 0.2s}
+.faq[open] summary::before{transform:rotate(90deg);content:"▾ "}
+.faq p{margin:8px 0}
+
+/* Imágenes simuladas con cajas */
+.screenshot{border:2px solid #ddd;border-radius:8px;padding:12px;background:#fff;margin:10px 0;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
+.screenshot .header-app{background:#1565C0;color:#fff;padding:8px;border-radius:4px;font-size:12px;font-weight:800;text-align:center;margin-bottom:8px}
+.screenshot .fila{display:flex;gap:4px;margin:4px 0}
+.screenshot .box{flex:1;padding:8px;background:#E8F5E9;border-radius:4px;font-size:11px;font-weight:800;text-align:center;color:#2E7D32}
+.screenshot .box.rojo{background:#FFEBEE;color:#C62828}
+.screenshot .box.gris{background:#EEE;color:#666}
+.screenshot .mesa-num{background:#F5F5F5;padding:14px;border-radius:4px;text-align:center;margin:6px 0}
+.screenshot .mesa-num .grande{font-size:32px;font-weight:800;color:#1565C0}
+
+/* Scroll to top */
+.top-btn{position:fixed;bottom:20px;right:20px;background:#1565C0;color:#fff;width:50px;height:50px;border-radius:50%;text-align:center;line-height:50px;font-size:24px;font-weight:800;text-decoration:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:100}
+
+/* Caja con lista de contacto */
+.contacto{background:#1565C0;color:#fff;padding:14px;border-radius:8px;text-align:center;margin:20px 0}
+.contacto a{color:#fff;text-decoration:underline}
+
+/* Responsive */
+@media (min-width:768px){
+    body{font-size:17px}
+    .top h1{font-size:22px}
+    section h2{font-size:26px}
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+    <h1>📱 Solar Drone — Manual de campo</h1>
+    <div class="sub">Para técnicos · Planta Balbona (Jumilla)</div>
+</div>
+
+<nav class="nav">
+    <a href="#antes">① Antes de salir</a>
+    <a href="#arrancar">② Arrancar</a>
+    <a href="#movil">③ Conectar móvil</a>
+    <a href="#capturar">④ Capturar</a>
+    <a href="#modos">⑤ Modos cámara</a>
+    <a href="#fin">⑥ Fin del día</a>
+    <a href="#problemas">⚠ Problemas</a>
+</nav>
+
+<div class="container">
+
+<div class="alerta azul">
+    <span class="ico">👋</span>
+    <strong>Bienvenido.</strong> Esta app se usa así: enchufas los escáneres al PC, arrancas el software y desde el móvil le das a <strong>INICIAR</strong>. Disparas códigos con el escáner de mano, las cámaras sacan fotos solas. Listo.
+</div>
+
+<!-- ==================== SECCIÓN 1: ANTES DE SALIR ==================== -->
+<section id="antes">
+    <h2><span class="n">1</span> Antes de salir</h2>
+
+    <div class="paso">
+        <div class="titulo">🔋 Cargar todo al 100%</div>
+        <ul>
+            <li>Portátil Windows</li>
+            <li>Móvil del técnico</li>
+            <li>(Opcional) Batería externa por si acaso</li>
+        </ul>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">🔌 Conectar la pértiga</div>
+        <ol>
+            <li>Enchufa los <strong>3 escáneres Honeywell</strong> de la pértiga al PC (USB)</li>
+            <li>Enchufa el <strong>escáner de mano</strong> (el de códigos de barras) al PC</li>
+            <li>Enchufa el <strong>GPS</strong> al PC</li>
+        </ol>
+        <div class="alerta amarillo">
+            <span class="ico">⚠</span>
+            <strong>OJO:</strong> los 5 cables son USB. El GPS tiene una antena pequeña negra.
+        </div>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">📡 Activar hotspot en el móvil del técnico</div>
+        <p><strong>Android:</strong> Ajustes → Red → <strong>Punto de acceso WiFi</strong> → Activar.</p>
+        <p><strong>iPhone:</strong> Ajustes → <strong>Compartir Internet</strong> → Activar. Dentro pon <strong>"Maximizar compatibilidad"</strong> en ON.</p>
+        <p>Apunta el nombre de la red y la contraseña.</p>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">📶 Conectar PC al hotspot</div>
+        <ol>
+            <li>En el PC, click en el icono WiFi (abajo derecha)</li>
+            <li>Elige la red del móvil</li>
+            <li>Mete la contraseña</li>
+            <li>Espera a que diga "Conectado" (aunque ponga "sin internet", nos da igual)</li>
+        </ol>
+    </div>
+</section>
+
+<!-- ==================== SECCIÓN 2: ARRANCAR ==================== -->
+<section id="arrancar">
+    <h2><span class="n">2</span> Arrancar el software</h2>
+
+    <div class="paso">
+        <div class="titulo">▶ Doble-click al programa</div>
+        <p>En el Escritorio del PC hay una carpeta <code>SolarDrone</code>. Dentro encontrarás:</p>
+        <ul>
+            <li><code>EJECUTAR_CAPTURA.bat</code> → <strong>este es el que usas cada día</strong></li>
+            <li><code>EJECUTAR_CONFIGURADOR.bat</code> → solo la primera vez (ya está hecho)</li>
+        </ul>
+        <p>Doble-click en <strong>EJECUTAR_CAPTURA.bat</strong>.</p>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">📺 Se abre una consola negra con texto verde</div>
+        <p>Debes ver algo parecido a esto:</p>
+        <pre>✓ Config leída: config.json
+✓ E1 conectado en COM4
+✓ E2 conectado en COM5
+✓ E3 conectado en COM6
+✓ GPS conectado en COM7
+✓ 3/3 escáneres conectados
+
+======================================
+  SERVIDOR MÓVIL ESCUCHANDO
+  Abre en el móvil:
+    → http://192.168.x.x:8080
+======================================</pre>
+
+        <div class="alerta verde">
+            <span class="ico">📝</span>
+            <strong>Apunta la URL</strong> (algo como <code>http://192.168.x.x:8080</code>) — la necesitas en el móvil.
+        </div>
+    </div>
+
+    <div class="alerta rojo">
+        <span class="ico">⚠</span>
+        <strong>No cierres la consola negra.</strong> Si la cierras, se corta la captura. Puedes minimizarla y meter el PC en la mochila (se queda funcionando).
+    </div>
+</section>
+
+<!-- ==================== SECCIÓN 3: CONECTAR MÓVIL ==================== -->
+<section id="movil">
+    <h2><span class="n">3</span> Abrir la app en el móvil</h2>
+
+    <div class="paso">
+        <div class="titulo">🌐 En el navegador del móvil</div>
+        <ol>
+            <li>Abre <strong>Chrome</strong> (Android) o <strong>Safari</strong> (iPhone)</li>
+            <li>En la barra de direcciones escribe la URL del PC: <code>http://192.168.1.43:8080</code> (la que apuntaste)</li>
+            <li>Pulsa <strong>Intro</strong></li>
+        </ol>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">📲 Debe aparecer esta pantalla</div>
+        <div class="screenshot">
+            <div class="header-app">Solar Drone — Móvil</div>
+            <div class="fila">
+                <div class="box">E1 ✓</div>
+                <div class="box">E2 ✓</div>
+                <div class="box">E3 ✓</div>
+                <div class="box">GPS ✓</div>
+            </div>
+            <div class="mesa-num">
+                <div style="font-size:11px;color:#666">CÓDIGOS</div>
+                <div class="grande">0</div>
+            </div>
+            <div class="btn-demo verde" style="display:block;width:100%;text-align:center;padding:14px">▶ INICIAR CAPTURA</div>
+        </div>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">📌 Ponla como app en el móvil</div>
+        <p><strong>Chrome (Android):</strong> Menú (3 puntos) → "Añadir a pantalla principal"</p>
+        <p><strong>Safari (iPhone):</strong> Botón compartir → "Añadir a pantalla de inicio"</p>
+        <p>Así mañana te abre directamente como si fuera una app.</p>
+    </div>
+
+    <div class="alerta amarillo">
+        <span class="ico">🔊</span>
+        <strong>Toca la pantalla una vez</strong> al abrirla — es para que el navegador autorice los sonidos (beeps al escanear códigos).
+    </div>
+</section>
+
+<!-- ==================== SECCIÓN 4: CAPTURAR ==================== -->
+<section id="capturar">
+    <h2><span class="n">4</span> Capturar una mesa</h2>
+
+    <div class="paso">
+        <div class="titulo">🚶 Caminas hasta el primer panel</div>
+        <p>Con la pértiga alzada apuntando a los números de serie.</p>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">▶ Toca INICIAR CAPTURA en el móvil</div>
+        <p>A partir de ese momento, las 3 cámaras empiezan a sacar fotos automáticamente.</p>
+        <p>En el móvil verás el botón rojo <span class="btn-demo rojo">■ PARAR CAPTURA</span> — le das cuando termines la mesa.</p>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">📦 Disparas el escáner de mano contra los códigos de barras</div>
+        <ul>
+            <li>Cada vez que disparas, el móvil hace <strong>BEEP</strong> + vibra</li>
+            <li>El contador de CÓDIGOS sube</li>
+            <li>Las fotos se guardan automáticamente en el PC</li>
+        </ul>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">■ Al terminar, toca PARAR CAPTURA</div>
+        <p>Ya está. Pasas a la siguiente mesa y repites: INICIAR → escanear → PARAR.</p>
+    </div>
+
+    <div class="alerta azul">
+        <span class="ico">💡</span>
+        <strong>Consejo:</strong> Si te saltas un código o te equivocas, sigue adelante. Luego en la oficina se repasa. No pares la captura.
+    </div>
+</section>
+
+<!-- ==================== SECCIÓN 5: MODOS DE CÁMARA ==================== -->
+<section id="modos">
+    <h2><span class="n">5</span> ¿Qué hacer si las fotos salen mal?</h2>
+
+    <p>Si ves en el móvil que las <strong>miniaturas</strong> (las 3 fotos pequeñas abajo) salen mal, puedes cambiar de modo. Toca <strong>⚙ Ajustes</strong> en la parte de abajo para desplegarlo.</p>
+
+    <div class="paso">
+        <div class="titulo">🎛 5 modos, elige según la luz</div>
+        <table>
+            <tr><th>Modo</th><th>¿Cuándo?</th></tr>
+            <tr><td><span class="btn-demo">🌤 NORMAL</span></td><td>Nublado, sombra, interior</td></tr>
+            <tr><td><span class="btn-demo naranja">☀ SOL</span></td><td>Sol medio, nubes y claros</td></tr>
+            <tr><td><span class="btn-demo naranja" style="background:#E65100">☀☀ SOL FUERTE</span></td><td>Sol directo muy fuerte</td></tr>
+            <tr><td><span class="btn-demo" style="background:#6A1B9A">⚡ MANUAL</span></td><td>Si ninguno funciona</td></tr>
+            <tr><td><span class="btn-demo" style="background:#00695C">🔀 BRACKETING</span></td><td>Luz cambiante (entre nubes)</td></tr>
+        </table>
+        <p style="margin-top:8px"><strong>Regla rápida:</strong> Si las fotos salen blancas/quemadas, sube a SOL FUERTE. Si salen oscuras, baja a NORMAL.</p>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">🎯 AUTO-CALIBRAR</div>
+        <p>En Ajustes hay un botón <span class="btn-demo" style="background:#00695C">🎯 AUTO-CALIBRAR TODOS</span>. Tarda ~10 segundos y deja las 3 cámaras con el brillo óptimo para la luz que hay ahora mismo.</p>
+        <p>Úsalo al empezar el día o cuando cambie mucho la luz (ej. pasó una nube).</p>
+    </div>
+
+    <div class="alerta verde">
+        <span class="ico">✓</span>
+        <strong>Sin miedo:</strong> puedes cambiar de modo <u>mientras capturas</u>, no hace falta parar. La siguiente foto ya sale con la config nueva.
+    </div>
+</section>
+
+<!-- ==================== SECCIÓN 6: FIN DEL DÍA ==================== -->
+<section id="fin">
+    <h2><span class="n">6</span> Al terminar la jornada</h2>
+
+    <div class="paso">
+        <div class="titulo">🛑 Parar captura</div>
+        <p>Toca <span class="btn-demo rojo">■ PARAR CAPTURA</span> en el móvil.</p>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">🧹 Cerrar el programa</div>
+        <p>Pulsa <kbd>Ctrl</kbd>+<kbd>C</kbd> en la consola negra del PC. La consola se cerrará.</p>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">☁ Subir fotos (en el hotel con WiFi bueno)</div>
+        <p>Doble-click en <code>SUBIR_DATOS.bat</code>. Sube todas las fotos del día a la nube. Puede tardar un rato.</p>
+        <div class="alerta azul">
+            <span class="ico">ℹ</span>
+            No es obligatorio subirlas cada día. Las fotos quedan guardadas en el PC en la carpeta <code>capturas/</code>. Pero mejor subirlas al menos 1 vez por semana.
+        </div>
+    </div>
+
+    <div class="paso">
+        <div class="titulo">🔋 Poner PC y móvil a cargar</div>
+        <p>Para que estén listos mañana.</p>
+    </div>
+</section>
+
+<!-- ==================== SECCIÓN 7: PROBLEMAS ==================== -->
+<section id="problemas">
+    <h2><span class="n">⚠</span> Solución de problemas</h2>
+
+    <details class="faq">
+        <summary>El móvil dice "Safari no puede conectarse al servidor"</summary>
+        <p>1. Verifica que el PC está conectado al hotspot del móvil.</p>
+        <p>2. Verifica que la URL empieza por <code>http://</code> (no https).</p>
+        <p>3. En el PC, comprueba que la consola sigue abierta y ve la línea "SERVIDOR MÓVIL ESCUCHANDO".</p>
+        <p>4. Si no, cierra y vuelve a doble-clicar en <code>EJECUTAR_CAPTURA.bat</code>.</p>
+    </details>
+
+    <details class="faq">
+        <summary>Los escáneres aparecen con ✗ en rojo arriba</summary>
+        <p>1. Revisa el cable USB del escáner afectado (E1, E2, E3).</p>
+        <p>2. Desenchúfalo y vuélvelo a enchufar.</p>
+        <p>3. Si sigue fallando, cierra el programa y relanza <code>EJECUTAR_CAPTURA.bat</code>.</p>
+    </details>
+
+    <details class="faq">
+        <summary>El GPS aparece en amarillo "⏳ buscando satélites"</summary>
+        <p>Es normal los primeros 1-2 minutos, especialmente si acabas de salir de un edificio. En campo abierto suele fijar en &lt;1 minuto. Ten paciencia.</p>
+    </details>
+
+    <details class="faq">
+        <summary>El escáner de mano no lee / no cuenta códigos</summary>
+        <p>1. Prueba el escáner contra cualquier código de barras fuera de la planta (ej. caja, libro).</p>
+        <p>2. Si no pita o no lee, el escáner está en fallo: desenchúfalo y vuelve a enchufarlo.</p>
+        <p>3. Si lee pero el móvil no cuenta: recarga la página del móvil con un refresh fuerte.</p>
+    </details>
+
+    <details class="faq">
+        <summary>Las fotos salen TODAS BLANCAS quemadas</summary>
+        <p>Cambia a <strong>☀☀ SOL FUERTE</strong> desde Ajustes. Si sigue así, pulsa <strong>🎯 AUTO-CALIBRAR TODOS</strong>.</p>
+    </details>
+
+    <details class="faq">
+        <summary>Las fotos salen TODAS OSCURAS / negras</summary>
+        <p>Cambia a <strong>🌤 NORMAL</strong> desde Ajustes. Verifica que los LEDs están ON (checkbox en cada escáner).</p>
+    </details>
+
+    <details class="faq">
+        <summary>El móvil no hace ruido al disparar códigos</summary>
+        <p>1. Sube el volumen del móvil (botones laterales).</p>
+        <p>2. Toca una vez cualquier parte de la pantalla para autorizar audio.</p>
+        <p>3. Si sigue sin sonar, refresca la página.</p>
+    </details>
+
+    <details class="faq">
+        <summary>Se me cayó el móvil / se me acabó la batería</summary>
+        <p>La captura sigue funcionando en el PC aunque el móvil se muera. No pierdes datos. Cuando el móvil vuelva, abre la página y vuelve a ver el estado.</p>
+    </details>
+
+    <details class="faq">
+        <summary>Se me quedó colgado el programa</summary>
+        <p>1. En la consola negra del PC, pulsa <kbd>Ctrl</kbd>+<kbd>C</kbd>.</p>
+        <p>2. Cierra todas las ventanas abiertas.</p>
+        <p>3. Desenchufa y vuelve a enchufar los escáneres.</p>
+        <p>4. Doble-click en <code>EJECUTAR_CAPTURA.bat</code> para empezar de nuevo.</p>
+        <p>Las fotos anteriores ya están guardadas, no se pierden.</p>
+    </details>
+</section>
+
+<div class="contacto">
+    <strong>¿Necesitas ayuda urgente?</strong><br>
+    Llama o manda WhatsApp a <strong>Rubén</strong> con una foto de lo que ves en la pantalla del PC.
+</div>
+
+<a href="#" class="top-btn" title="Volver arriba">↑</a>
+
+</div>
+
+<script>
+// Cerrar todos los details abiertos por defecto en móvil
+// (para que el usuario los abra conscientemente)
+
+// Click en ancla → smooth scroll (ya está con CSS scroll-behavior)
+document.querySelectorAll('.nav a').forEach(a => {
+    a.addEventListener('click', e => {
+        // Pequeño ajuste: el top sticky quita altura
+        const target = document.querySelector(a.getAttribute('href'));
+        if(target){
+            e.preventDefault();
+            const y = target.getBoundingClientRect().top + window.pageYOffset - 120;
+            window.scrollTo({top: y, behavior: 'smooth'});
+        }
+    });
+});
+</script>
+
+</body>
+</html>
